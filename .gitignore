@@ -49,3 +49,4 @@ test
 **/lib*.a
 **/*.jar
 **/.unison
+**/.cquery_cached_index
