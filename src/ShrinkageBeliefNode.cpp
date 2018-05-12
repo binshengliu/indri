@@ -22,7 +22,7 @@
 #include "indri/Parameters.hpp"
 #include <cmath>
 #ifdef ISNAN_IN_NAMESPACE_STD
-using std::isnan;
+// using std::isnan;
 #else
 #ifdef ISNAN_IN_NAMESPACE_GNU_CXX
 using __gnu_cxx::isnan;
@@ -359,7 +359,7 @@ void indri::infnet::ShrinkageBeliefNode::_buildScoreCache( lemur::api::DOCID_T d
 
       relative /= divisor;
       
-      if ( ! isnan( relative ) ) {
+      if ( ! std::isnan( relative ) ) {
         if ( remaining >= 0 ) {
           _up[ i ] = remaining * relative + absolute;
         } else {
