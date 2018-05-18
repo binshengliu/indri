@@ -78,7 +78,31 @@ static void printGrams( const std::string& query, const std::vector<indri::query
   }
 }
 
-static void usage( indri::api::Parameters param ) {
+static void printQuery(const std::string& query,
+                        const std::vector<indri::query::RelevanceModel::Gram*>& grams) {
+  std::cout << "<query>" << std::endl;
+  std::cout << "  <number>" << query << "</number>" << std::endl;
+  std::cout << "  <text>";
+  std::cout << "#weight( ";
+
+  for( size_t j=0; j<grams.size(); j++ ) {
+    std::cout << std::setw(15)
+              << std::setprecision(15)
+              << std::fixed
+              << grams[j]->weight << " ";
+
+    for( size_t k=0; k<grams[j]->terms.size(); k++ ) {
+      std::cout << grams[j]->terms[k] << " ";
+    }
+  }
+
+  std::cout << ")" << std::endl;
+  std::cout << "  </text>" << std::endl;
+  std::cout << "</query>" << std::endl;
+  std::cout << std::endl;
+}
+
+static void usage(indri::api::Parameters param) {
   if( !param.exists( "trecrun" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" )
       || !param.exists("field")) {
    std::cerr << "rmodel usage: " << std::endl
@@ -119,7 +143,7 @@ int main( int argc, char** argv ) {
     int documents = (int) param[ "documents" ];
     int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default
     int terms = (int)param.get("terms", 0);
-    std::string jsonFile = param.get("json", "");
+    bool queryFormat = param.exists("printQuery");
 
     std::ifstream ifs(trecrun);
     indri::query::TrecRunFile trec;
@@ -139,7 +163,11 @@ int main( int argc, char** argv ) {
       }
 
       const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
-      printGrams( results[query_index].queryNumber, grams );
+      if (queryFormat) {
+        printQuery(results[query_index].queryNumber, grams);
+      } else {
+        printGrams( results[query_index].queryNumber, grams );
+      }
     }
   } catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
