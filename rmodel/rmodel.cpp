@@ -78,14 +78,12 @@ static void printGrams( const std::string& query, const std::vector<indri::query
   }
 }
 
-static void printQuery(const std::string& query,
+static void printQuery(const std::string& query, const std::string &fieldName,
                         const std::vector<indri::query::RelevanceModel::Gram*>& grams) {
-  std::cout << "<query>" << std::endl;
-  std::cout << "  <number>" << query << "</number>" << std::endl;
-  std::cout << "  <text>";
-  std::cout << "#weight( ";
-
+  std::cout << "  <model query=\"" << query << "\" field=\""
+            << fieldName << "\">" << std::endl;
   for( size_t j=0; j<grams.size(); j++ ) {
+    std::cout << "    ";
     std::cout << std::setw(15)
               << std::setprecision(15)
               << std::fixed
@@ -94,11 +92,10 @@ static void printQuery(const std::string& query,
     for( size_t k=0; k<grams[j]->terms.size(); k++ ) {
       std::cout << grams[j]->terms[k] << " ";
     }
+    std::cout << std::endl;
   }
 
-  std::cout << ")" << std::endl;
-  std::cout << "  </text>" << std::endl;
-  std::cout << "</query>" << std::endl;
+  std::cout << "  </model>" << std::endl;
   std::cout << std::endl;
 }
 
@@ -106,14 +103,14 @@ static void usage(indri::api::Parameters param) {
   if( !param.exists( "trecrun" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" )
       || !param.exists("field")) {
    std::cerr << "rmodel usage: " << std::endl
-             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2 -terms=50 -json=output.json" << std::endl
+             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2 -terms=50 -format=xml" << std::endl
              << "     myfield: a valid field in the index" << std::endl
              << "     myrun: a valid Indri run file (be sure to use quotes around it if there are spaces in it)" << std::endl
              << "     myindex: a valid Indri index" << std::endl
              << "     documents: the number of documents to use to build the relevance model" << std::endl
              << "     maxGrams (optional): maximum length (in words) of phrases to be added to the model, default is 1 (unigram)" << std::endl
              << "     terms (optional): the number of terms of the final rm" << std::endl
-             << "     json (optional): write into json format" << std::endl
+             << "     format (optional): write into xml format" << std::endl
        ;
    exit(-1);
   }
@@ -143,11 +140,15 @@ int main( int argc, char** argv ) {
     int documents = (int) param[ "documents" ];
     int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default
     int terms = (int)param.get("terms", 0);
-    bool queryFormat = param.exists("printQuery");
+    bool xmlFormat = (param.get("format", "") == "xml");
 
     std::ifstream ifs(trecrun);
     indri::query::TrecRunFile trec;
     std::vector<indri::query::TrecQueryResult> results = trec.load(ifs, documents);
+
+    if (xmlFormat) {
+      std::cout << "<root>" << std::endl;
+    }
 
     for (size_t query_index = 0; query_index < results.size(); ++query_index) {
       std::cerr << "\r Processed: "
@@ -163,11 +164,15 @@ int main( int argc, char** argv ) {
       }
 
       const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
-      if (queryFormat) {
-        printQuery(results[query_index].queryNumber, grams);
+      if (xmlFormat) {
+        printQuery(results[query_index].queryNumber, field, grams);
       } else {
         printGrams( results[query_index].queryNumber, grams );
       }
+    }
+
+    if (xmlFormat) {
+      std::cout << "</root>" << std::endl;
     }
   } catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
