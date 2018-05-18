@@ -119,6 +119,8 @@ namespace indri {
       void generate( const std::string& query );
       // generate from an existing result set
       void generate( const std::string &query , const std::vector<indri::api::ScoredExtentResult>& results );
+      // generate from an existing trec run file
+      void generate(std::ifstream &ifstream, const std::string &field);
       const std::vector<indri::api::ScoredExtentResult>& getQueryResults() const;
       const std::vector<Gram*>& getGrams() const;
     };

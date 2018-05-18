@@ -17,6 +17,7 @@
 //
 
 #include "indri/RelevanceModel.hpp"
+#include "indri/TrecRunFile.hpp"
 #include <math.h>
 
 //
@@ -278,6 +279,22 @@ static void _logtoposterior(std::vector<indri::api::ScoredExtentResult> &res) {
   }
 }
 
+static void _logtoposterior(std::vector<indri::query::TrecRecord> &res) {
+  if (res.size() == 0) return;
+  indri::query::TrecRunFile::iterator iter;
+  iter = res.begin();
+  double K = (*iter).score;
+  // first is max
+  double sum=0;
+
+  for (iter = res.begin(); iter != res.end(); iter++) {
+    sum += (*iter).score=exp((*iter).score - K);
+  }
+  for (iter = res.begin(); iter != res.end(); iter++) {
+    (*iter).score/=sum;
+  }
+}
+
 
 //
 // generate
@@ -321,6 +338,53 @@ void indri::query::RelevanceModel::generate( const std::string& query, const std
       delete _vectors[i];
   } catch( lemur::api::Exception& e ) {
     LEMUR_RETHROW( e, "Couldn't generate relevance model for '" + query + "' because: " );
+  }
+}
+
+//
+// generate
+//
+
+void indri::query::RelevanceModel::generate( std::ifstream &ifstream, const std::string &field ) {
+  indri::query::TrecRunFile trec;
+  std::vector<indri::query::TrecRecord> records = trec.load(ifstream);
+
+  try {
+    std::vector<std::string> docNames;
+    for (size_t i = 0; i < records.size(); ++i) {
+      docNames.push_back(records[i].documentName);
+    }
+
+    _documentIDs = _environment.documentIDsFromMetadata("docno", docNames);
+    _vectors = _environment.documentVectors( _documentIDs );
+
+    _logtoposterior(records);
+    _grams.clear();
+
+
+    for (size_t i = 0; i < records.size(); ++i) {
+      indri::api::ScoredExtentResult result(records[i].score, _documentIDs[i]);
+
+      // if (field == "") {
+      //   // result.begin = _vectors[i]->be;
+      // }
+      std::vector<indri::api::DocumentVector::Field> fields = _vectors[i]->fields();
+      for (auto itr = fields.begin(); itr != fields.end(); ++itr) {
+        if (itr->name == field) {
+          result.begin = itr->begin;
+          result.end = itr->end;
+          break;
+        }
+      }
+    }
+
+    _countGrams();
+    _scoreGrams();
+    _sortGrams();
+    for (unsigned int i = 0; i < _vectors.size(); i++)
+      delete _vectors[i];
+  } catch( lemur::api::Exception& e ) {
+    LEMUR_RETHROW(e, "Couldn't generate relevance model because: ");
   }
 }
 

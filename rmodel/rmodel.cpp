@@ -77,10 +77,12 @@ static void printGrams( const std::string& query, const std::vector<indri::query
 }
 
 static void usage( indri::api::Parameters param ) {
-  if( !param.exists( "query" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" ) ) {
+  if( !param.exists( "trecrun" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" )
+      || !param.exists("field")) {
    std::cerr << "rmodel usage: " << std::endl
-             << "   rmodel -query=myquery -index=myindex -documents=10 -maxGrams=2" << std::endl
-             << "     myquery: a valid Indri query (be sure to use quotes around it if there are spaces in it)" << std::endl
+             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2" << std::endl
+             << "     myfield: a valid field in the index" << std::endl
+             << "     myrun: a valid Indri run file (be sure to use quotes around it if there are spaces in it)" << std::endl
              << "     myindex: a valid Indri index" << std::endl
              << "     documents: the number of documents to use to build the relevance model" << std::endl
              << "     maxGrams (optional): maximum length (in words) of phrases to be added to the model, default is 1 (unigram)" << std::endl;
@@ -105,20 +107,20 @@ int main( int argc, char** argv ) {
 
     indri::api::QueryEnvironment environment;
     open_indexes( environment, param );
-              
-    indri::api::Parameters parameterQueries = param[ "query" ];
+
+    std::string trecrun = param["trecrun"];
     std::string rmSmoothing = ""; // eventually, we should offer relevance model smoothing
+    std::string field = param["field"];
     int documents = (int) param[ "documents" ];
     int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default
 
-    for( size_t i=0; i<parameterQueries.size(); i++ ) {
-      std::string query = parameterQueries[i];
-      indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );
-      model.generate( query );
+    std::ifstream ifs(trecrun);
+    indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );
+    model.generate(ifs, field);
 
-      const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
-      printGrams( query, grams );
-    }
+    const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
+    printGrams( "N/A", grams );
+
   } catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
   } catch( ... ) {
