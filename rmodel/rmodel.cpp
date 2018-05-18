@@ -82,12 +82,15 @@ static void usage( indri::api::Parameters param ) {
   if( !param.exists( "trecrun" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" )
       || !param.exists("field")) {
    std::cerr << "rmodel usage: " << std::endl
-             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2" << std::endl
+             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2 -terms=50 -json=output.json" << std::endl
              << "     myfield: a valid field in the index" << std::endl
              << "     myrun: a valid Indri run file (be sure to use quotes around it if there are spaces in it)" << std::endl
              << "     myindex: a valid Indri index" << std::endl
              << "     documents: the number of documents to use to build the relevance model" << std::endl
-             << "     maxGrams (optional): maximum length (in words) of phrases to be added to the model, default is 1 (unigram)" << std::endl;
+             << "     maxGrams (optional): maximum length (in words) of phrases to be added to the model, default is 1 (unigram)" << std::endl
+             << "     terms (optional): the number of terms of the final rm" << std::endl
+             << "     json (optional): write into json format" << std::endl
+       ;
    exit(-1);
   }
 }
@@ -115,6 +118,8 @@ int main( int argc, char** argv ) {
     std::string field = param["field"];
     int documents = (int) param[ "documents" ];
     int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default
+    int terms = (int)param.get("terms", 0);
+    std::string jsonFile = param.get("json", "");
 
     std::ifstream ifs(trecrun);
     indri::query::TrecRunFile trec;
