@@ -158,6 +158,74 @@ void indri::query::RelevanceModel::_countGrams() {
   }
 }
 
+void indri::query::RelevanceModel::_countGrams(std::string fieldName) {
+  // for each query result
+  for (size_t i = 0; i < _vectors.size(); i++) {
+    // run through the text, extracting n-grams
+    indri::api::DocumentVector* v = _vectors[i];
+    std::vector<int>& positions = v->positions();
+    std::vector<std::string>& stems = v->stems();
+    std::vector<indri::api::DocumentVector::Field> &fields = v->fields();
+    for (size_t f = 0; f < fields.size(); ++f) {
+      if (fields[f].name != fieldName) {
+        continue;
+      }
+
+      int begin = fields[f].begin;
+      int end = fields[f].end;
+      // begin is zero, use end as the length.
+      _results[i].end += (end - begin);
+
+      // for each word position in the text
+      for (int j = begin; j < end; j++) {
+        int maxGram = std::min(_maxGrams, end - j);
+
+        // extract every possible n-gram that starts at this position
+        // up to _maxGrams in length
+        for( int n = 1; n <= maxGram; n++ ) {
+          GramCounts* newCounts = new GramCounts;
+          bool containsOOV = false;
+
+          // build the gram
+          for( int k = 0; k < n; k++ ) {
+            if( positions[ k + j ] == 0 || (! isValidWord(stems[ positions[ k + j ] ])) ) {
+              containsOOV = true;
+              break;
+            }
+
+            newCounts->gram.terms.push_back( stems[ positions[ k + j ] ] );
+          }
+
+          if( containsOOV ) {
+            // if this contanied OOV, all larger n-grams
+            // starting at this point also will
+            delete newCounts;
+            break;
+          }
+
+          GramCounts** gramCounts = 0;        
+          gramCounts = _gramTable.find( &newCounts->gram );
+
+          if( gramCounts == 0 ) {
+            _gramTable.insert( &newCounts->gram, newCounts );
+            gramCounts = &newCounts;
+          } else {
+            delete newCounts;
+          }
+
+          if( (*gramCounts)->counts.size() && (*gramCounts)->counts.back().first == i ) {
+            // we already have some counts going for this query result, so just add this one
+            (*gramCounts)->counts.back().second++;
+          } else {
+            // no counts yet in this document, so add an entry
+            (*gramCounts)->counts.push_back( std::make_pair( i, 1 ) );
+          }
+        }
+      }
+    }
+  }
+}
+
 //
 // _scoreGrams
 //
@@ -279,22 +347,6 @@ static void _logtoposterior(std::vector<indri::api::ScoredExtentResult> &res) {
   }
 }
 
-static void _logtoposterior(std::vector<indri::query::TrecRecord> &res) {
-  if (res.size() == 0) return;
-  auto iter = res.begin();
-  double K = (*iter).score;
-  // first is max
-  double sum=0;
-
-  for (iter = res.begin(); iter != res.end(); iter++) {
-    sum += (*iter).score=exp((*iter).score - K);
-  }
-  for (iter = res.begin(); iter != res.end(); iter++) {
-    (*iter).score/=sum;
-  }
-}
-
-
 //
 // generate
 //
@@ -344,62 +396,27 @@ void indri::query::RelevanceModel::generate( const std::string& query, const std
 // generate
 //
 
-void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecord> &records, const std::string &field ) {
+void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecord> &records, const std::string &fieldName ) {
   std::vector<std::string> docNames;
   for (size_t i = 0; i <records.size(); ++i) {
     docNames.push_back(records[i].documentName);
   }
 
-  std::cerr << "Documents: " << records.size() << std::endl;
-
   try {
-    std::cerr << "Retrieving doc IDs ... ";
-    std::flush(std::cerr);
     _documentIDs = _environment.documentIDsFromMetadata("docno", docNames);
-    std::cerr << "done." << std::endl;
-
-    std::cerr << "Retrieving documents ... ";
-    std::flush(std::cerr);
-    _vectors = _environment.documentVectors( _documentIDs );
-    std::cerr << "done." << std::endl;
-
-    std::cerr << "Restoring probabilities ... ";
-    std::flush(std::cerr);
-    _logtoposterior(records);
-    _grams.clear();
-    std::cerr << "done." << std::endl;
-
-    std::cerr << "Converting results ... ";
-    std::flush(std::cerr);
     for (size_t i = 0; i < records.size(); ++i) {
       indri::api::ScoredExtentResult result(records[i].score, _documentIDs[i]);
-
-      std::vector<indri::api::DocumentVector::Field> fields = _vectors[i]->fields();
-      for (auto itr = fields.begin(); itr != fields.end(); ++itr) {
-        if (itr->name == field) {
-          result.begin = itr->begin;
-          result.end = itr->end;
-          _results.push_back(result);
-          break;
-        }
-      }
+      _results.push_back(result);
     }
-    std::cerr << "done." << std::endl;
+    _logtoposterior(_results);
 
-    std::cerr << "Counting grams ... ";
-    std::flush(std::cerr);
-    _countGrams();
-    std::cerr << "done." << std::endl;
+    _vectors = _environment.documentVectors( _documentIDs );
 
-    std::cerr << "Scoring grams ... ";
-    std::flush(std::cerr);
+    _grams.clear();
+    _countGrams(fieldName);
+
     _scoreGrams();
-    std::cerr << "done." << std::endl;
-
-    std::cerr << "Sorting grams ... ";
-    std::flush(std::cerr);
     _sortGrams();
-    std::cerr << "done." << std::endl;
 
     for (unsigned int i = 0; i < _vectors.size(); i++)
       delete _vectors[i];

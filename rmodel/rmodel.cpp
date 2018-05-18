@@ -119,10 +119,12 @@ int main( int argc, char** argv ) {
     std::ifstream ifs(trecrun);
     indri::query::TrecRunFile trec;
     std::vector<indri::query::TrecQueryResult> results = trec.load(ifs, documents);
-    std::cerr << "Total queries: " << results.size() << std::endl;
 
     for (size_t query_index = 0; query_index < results.size(); ++query_index) {
-      std::cerr << "# Query: " << results[query_index].queryNumber << std::endl;
+      std::cerr << "\r Processed: "
+                << query_index + 1
+                << "/"
+                << results.size() << std::flush;
       std::vector<indri::query::TrecRecord> records = results[query_index].records;
 
       indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );

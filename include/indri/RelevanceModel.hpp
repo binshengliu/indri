@@ -106,6 +106,7 @@ namespace indri {
       std::vector<indri::api::DocumentVector*> _vectors;
 
       void _countGrams();
+      void _countGrams(std::string fieldName);
       void _scoreGrams();
       void _sortGrams();
       void _extractDocuments();
