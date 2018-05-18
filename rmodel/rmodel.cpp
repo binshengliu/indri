@@ -24,6 +24,7 @@
 
 #include "indri/Parameters.hpp"
 #include "indri/RelevanceModel.hpp"
+#include "indri/TrecRunFile.hpp"
 
 static bool copy_parameters_to_string_vector( std::vector<std::string>& vec, indri::api::Parameters p, const std::string& parameterName ) {
   if( !p.exists(parameterName) )
@@ -65,6 +66,7 @@ static void printGrams( const std::string& query, const std::vector<indri::query
   for( size_t j=0; j<grams.size(); j++ ) {
     std::cout << std::setw(15)
               << std::setprecision(15)
+              << std::fixed
               << grams[j]->weight << " ";
     std::cout << grams[j]->terms.size() << " ";
 
@@ -115,12 +117,20 @@ int main( int argc, char** argv ) {
     int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default
 
     std::ifstream ifs(trecrun);
-    indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );
-    model.generate(ifs, field);
+    indri::query::TrecRunFile trec;
+    std::vector<indri::query::TrecQueryResult> results = trec.load(ifs, documents);
+    std::cerr << "Total queries: " << results.size() << std::endl;
 
-    const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
-    printGrams( "N/A", grams );
+    for (size_t query_index = 0; query_index < results.size(); ++query_index) {
+      std::cerr << "# Query: " << results[query_index].queryNumber << std::endl;
+      std::vector<indri::query::TrecRecord> records = results[query_index].records;
 
+      indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );
+      model.generate(records, field);
+
+      const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
+      printGrams( results[query_index].queryNumber, grams );
+    }
   } catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
   } catch( ... ) {

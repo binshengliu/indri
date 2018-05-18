@@ -17,11 +17,16 @@ class TrecRecord {
   std::string runID;
 };
 
+class TrecQueryResult {
+ public:
+  std::string queryNumber;
+  std::vector<TrecRecord> records;
+};
+
 class TrecRunFile {
  public:
-  typedef std::vector<TrecRecord>::iterator iterator;
-  std::vector<TrecRecord> load(const std::string &path);
-  std::vector<TrecRecord> load(std::istream &input);
+  std::vector<TrecQueryResult> load(const std::string &path, size_t countPerQuery);
+  std::vector<TrecQueryResult> load(std::istream &input, size_t countPerQuery);
 };
 }
 }

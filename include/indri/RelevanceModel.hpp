@@ -26,6 +26,7 @@
 #include "indri/HashTable.hpp"
 #include "indri/greedy_vector"
 #include "indri/QueryEnvironment.hpp"
+#include "indri/TrecRunFile.hpp"
 
 namespace indri {
   namespace query {
@@ -120,7 +121,7 @@ namespace indri {
       // generate from an existing result set
       void generate( const std::string &query , const std::vector<indri::api::ScoredExtentResult>& results );
       // generate from an existing trec run file
-      void generate(std::ifstream &ifstream, const std::string &field);
+      void generate(std::vector<indri::query::TrecRecord> &records, const std::string &field);
       const std::vector<indri::api::ScoredExtentResult>& getQueryResults() const;
       const std::vector<Gram*>& getGrams() const;
     };

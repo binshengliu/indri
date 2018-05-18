@@ -281,8 +281,7 @@ static void _logtoposterior(std::vector<indri::api::ScoredExtentResult> &res) {
 
 static void _logtoposterior(std::vector<indri::query::TrecRecord> &res) {
   if (res.size() == 0) return;
-  indri::query::TrecRunFile::iterator iter;
-  iter = res.begin();
+  auto iter = res.begin();
   double K = (*iter).score;
   // first is max
   double sum=0;
@@ -345,42 +344,63 @@ void indri::query::RelevanceModel::generate( const std::string& query, const std
 // generate
 //
 
-void indri::query::RelevanceModel::generate( std::ifstream &ifstream, const std::string &field ) {
-  indri::query::TrecRunFile trec;
-  std::vector<indri::query::TrecRecord> records = trec.load(ifstream);
+void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecord> &records, const std::string &field ) {
+  std::vector<std::string> docNames;
+  for (size_t i = 0; i <records.size(); ++i) {
+    docNames.push_back(records[i].documentName);
+  }
+
+  std::cerr << "Documents: " << records.size() << std::endl;
 
   try {
-    std::vector<std::string> docNames;
-    for (size_t i = 0; i < records.size(); ++i) {
-      docNames.push_back(records[i].documentName);
-    }
-
+    std::cerr << "Retrieving doc IDs ... ";
+    std::flush(std::cerr);
     _documentIDs = _environment.documentIDsFromMetadata("docno", docNames);
-    _vectors = _environment.documentVectors( _documentIDs );
+    std::cerr << "done." << std::endl;
 
+    std::cerr << "Retrieving documents ... ";
+    std::flush(std::cerr);
+    _vectors = _environment.documentVectors( _documentIDs );
+    std::cerr << "done." << std::endl;
+
+    std::cerr << "Restoring probabilities ... ";
+    std::flush(std::cerr);
     _logtoposterior(records);
     _grams.clear();
+    std::cerr << "done." << std::endl;
 
-
+    std::cerr << "Converting results ... ";
+    std::flush(std::cerr);
     for (size_t i = 0; i < records.size(); ++i) {
       indri::api::ScoredExtentResult result(records[i].score, _documentIDs[i]);
 
-      // if (field == "") {
-      //   // result.begin = _vectors[i]->be;
-      // }
       std::vector<indri::api::DocumentVector::Field> fields = _vectors[i]->fields();
       for (auto itr = fields.begin(); itr != fields.end(); ++itr) {
         if (itr->name == field) {
           result.begin = itr->begin;
           result.end = itr->end;
+          _results.push_back(result);
           break;
         }
       }
     }
+    std::cerr << "done." << std::endl;
 
+    std::cerr << "Counting grams ... ";
+    std::flush(std::cerr);
     _countGrams();
+    std::cerr << "done." << std::endl;
+
+    std::cerr << "Scoring grams ... ";
+    std::flush(std::cerr);
     _scoreGrams();
+    std::cerr << "done." << std::endl;
+
+    std::cerr << "Sorting grams ... ";
+    std::flush(std::cerr);
     _sortGrams();
+    std::cerr << "done." << std::endl;
+
     for (unsigned int i = 0; i < _vectors.size(); i++)
       delete _vectors[i];
   } catch( lemur::api::Exception& e ) {
