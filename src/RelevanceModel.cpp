@@ -19,6 +19,7 @@
 #include "indri/RelevanceModel.hpp"
 #include "indri/TrecRunFile.hpp"
 #include <math.h>
+#include <numeric>
 
 //
 // RelevanceModel
@@ -428,3 +429,14 @@ void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecor
   }
 }
 
+void indri::query::RelevanceModel::normalize(size_t count) {
+  count = std::min(count, _grams.size());
+  _grams.erase(_grams.begin() + count, _grams.end());
+  double sum =
+      std::accumulate(_grams.begin(), _grams.end(), 0.0,
+                      [](double sum, Gram* g) { return sum + g->weight; });
+
+  std::for_each(std::begin(_grams), std::end(_grams), [&](Gram *gram) {
+      gram->weight = gram->weight / sum;
+    });
+}

@@ -134,6 +134,9 @@ int main( int argc, char** argv ) {
 
       indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );
       model.generate(records, field);
+      if (terms != 0) {
+        model.normalize(terms);
+      }
 
       const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
       printGrams( results[query_index].queryNumber, grams );

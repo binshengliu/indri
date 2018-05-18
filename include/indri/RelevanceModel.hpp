@@ -123,6 +123,7 @@ namespace indri {
       void generate( const std::string &query , const std::vector<indri::api::ScoredExtentResult>& results );
       // generate from an existing trec run file
       void generate(std::vector<indri::query::TrecRecord> &records, const std::string &field);
+      void normalize(size_t count);
       const std::vector<indri::api::ScoredExtentResult>& getQueryResults() const;
       const std::vector<Gram*>& getGrams() const;
     };
