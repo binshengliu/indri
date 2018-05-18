@@ -288,6 +288,9 @@ void indri::query::RelevanceModel::_scoreGrams() {
         c++;
       }
 
+      if (contextLength == 0) {
+        continue;
+      }
       // determine the score for this term
       if( function != 0 ) {
         // log probability here
