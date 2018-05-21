@@ -78,10 +78,12 @@ static void printGrams( const std::string& query, const std::vector<indri::query
   }
 }
 
-static void printQuery(const std::string& query, const std::string &fieldName,
+static void printQuery(const std::string& query, const std::string &fieldName, int documents,
                         const std::vector<indri::query::RelevanceModel::Gram*>& grams) {
-  std::cout << "  <model query=\"" << query << "\" field=\""
-            << fieldName << "\">" << std::endl;
+  std::cout << "  <model query=\"" << query
+            << "\" documents=\"" << documents
+            << "\" field=\"" << fieldName
+            << "\">" << std::endl;
   for( size_t j=0; j<grams.size(); j++ ) {
     std::cout << "    ";
     std::cout << std::setw(15)
@@ -131,9 +133,6 @@ int main( int argc, char** argv ) {
     param.loadCommandLine( argc, argv );
     usage( param );
 
-    indri::api::QueryEnvironment environment;
-    open_indexes( environment, param );
-
     std::string trecrun = param["trecrun"];
     std::string rmSmoothing = ""; // eventually, we should offer relevance model smoothing
     std::string field = param["field"];
@@ -143,11 +142,20 @@ int main( int argc, char** argv ) {
     bool xmlFormat = (param.get("format", "") == "xml");
 
     std::ifstream ifs(trecrun);
+    if (!ifs) {
+      std::cerr << "Open " << trecrun << " failed." << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    indri::api::QueryEnvironment environment;
+    open_indexes( environment, param );
+
     indri::query::TrecRunFile trec;
     std::vector<indri::query::TrecQueryResult> results = trec.load(ifs, documents);
 
     if (xmlFormat) {
       std::cout << "<root>" << std::endl;
+      std::cout << "  <run>" << trecrun << "</run>" << std::endl << std::endl;
     }
 
     for (size_t query_index = 0; query_index < results.size(); ++query_index) {
@@ -165,7 +173,7 @@ int main( int argc, char** argv ) {
 
       const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
       if (xmlFormat) {
-        printQuery(results[query_index].queryNumber, field, grams);
+        printQuery(results[query_index].queryNumber, field, documents, grams);
       } else {
         printGrams( results[query_index].queryNumber, grams );
       }
