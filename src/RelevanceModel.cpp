@@ -417,7 +417,11 @@ void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecor
     _vectors = _environment.documentVectors( _documentIDs );
 
     _grams.clear();
-    _countGrams(fieldName);
+    if (fieldName == "all") {
+      _countGrams();
+    } else {
+      _countGrams(fieldName);
+    }
 
     _scoreGrams();
     _sortGrams();

@@ -106,7 +106,7 @@ static void usage(indri::api::Parameters param) {
       || !param.exists("field")) {
    std::cerr << "rmodel usage: " << std::endl
              << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2 -terms=50 -format=xml" << std::endl
-             << "     myfield: a valid field in the index" << std::endl
+             << "     myfield: a valid field in the index, or \"all\" for whole document" << std::endl
              << "     myrun: a valid Indri run file (be sure to use quotes around it if there are spaces in it)" << std::endl
              << "     myindex: a valid Indri index" << std::endl
              << "     documents: the number of documents to use to build the relevance model" << std::endl
