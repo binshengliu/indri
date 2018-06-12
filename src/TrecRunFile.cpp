@@ -15,9 +15,16 @@ std::vector<indri::query::TrecQueryResult> indri::query::TrecRunFile::load(std::
   TrecRecord r;
   while (input >> r.queryNumber >> r.q0 >> r.documentName
          >> r.rank >> r.score >> r.runID) {
+    if (q.queryNumber.empty()) {
+      q.queryNumber = r.queryNumber;
+    }
+
     if (r.queryNumber == q.queryNumber && q.records.size() >= countPerQuery) {
       continue;
     } else if (r.queryNumber != q.queryNumber) {
+      if (q.records.size() < countPerQuery) {
+        results.push_back(q);
+      }
       q.queryNumber = r.queryNumber;
       q.records.clear();
     }
@@ -26,5 +33,10 @@ std::vector<indri::query::TrecQueryResult> indri::query::TrecRunFile::load(std::
       results.push_back(q);
     }
   }
+
+  if (q.records.size() > 0 && q.records.size() < countPerQuery) {
+    results.push_back(q);
+  }
+
   return results;
 }
