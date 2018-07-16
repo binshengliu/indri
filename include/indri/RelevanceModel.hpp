@@ -107,7 +107,7 @@ namespace indri {
 
       void _countGrams();
       void _countGrams(std::string fieldName);
-      void _scoreGrams();
+      void _scoreGrams(const std::string &fieldName = "");
       void _sortGrams();
       void _extractDocuments();
 

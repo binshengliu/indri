@@ -20,6 +20,7 @@
 #include "indri/TFIDFTermScoreFunction.hpp"
 #include "indri/JelinekMercerTermScoreFunction.hpp"
 #include "indri/DirichletTermScoreFunction.hpp"
+#include "indri/LbsTermScoreFunction.hpp"
 #include "indri/TwoStageTermScoreFunction.hpp"
 #include "indri/Parameters.hpp"
 
@@ -39,7 +40,7 @@ static void termscorefunctionfactory_parse( indri::api::Parameters& converted, c
 // it is finished with it.
 //
 
-indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( const std::string& stringSpec, double occurrences, double contextSize, int documentOccurrences, int documentCount ) {
+indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( const std::string& stringSpec, double occurrences, double contextSize, int documentOccurrences, int documentCount, double fieldFrequency) {
   indri::api::Parameters spec;
   termscorefunctionfactory_parse( spec, stringSpec );
   std::string method = spec.get( "method", "dirichlet" );
@@ -52,7 +53,13 @@ indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( co
   double collectionFrequency = occurrences ? (occurrences/contextSize) :
     (collectionFrequency = 1.0 / double(contextSize*2.));
 
-  if( method == "dirichlet" || method == "d" || method == "dir" ) {
+  if( method == "lbs" ) {
+    // dirichlet -- takes parameter "mu"
+    double mu = spec.get( "mu", 2500 );
+    double beta = spec.get( "beta", 0.5);
+    double docmu=spec.get("documentMu",-1.0); // default is no doc-level smoothing
+    return new indri::query::LbsTermScoreFunction( mu, beta, fieldFrequency, collectionFrequency, docmu );
+  } else if( method == "dirichlet" || method == "d" || method == "dir" ) {
     // dirichlet -- takes parameter "mu"
     double mu = spec.get( "mu", 2500 );
     double docmu=spec.get("documentMu",-1.0); // default is no doc-level smoothing

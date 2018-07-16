@@ -241,7 +241,7 @@ void indri::query::RelevanceModel::_countGrams(std::string fieldName) {
 // _scoreGrams
 //
 
-void indri::query::RelevanceModel::_scoreGrams() {
+void indri::query::RelevanceModel::_scoreGrams(const string& fieldName) {
   HGram::iterator iter;
   double collectionCount = (double)_environment.termCount();
   indri::query::TermScoreFunction* function = 0;  
@@ -276,8 +276,16 @@ void indri::query::RelevanceModel::_scoreGrams() {
       }
 
       double gramFrequency = gramCount / collectionCount;
+      double fieldFrequency = 0.0;
+      if (!fieldName.empty()) {
+        double gramFieldCount = _environment.stemFieldCount(gram->terms[0], fieldName);
+        double fieldCount = _environment.fieldCount(fieldName);
+        if (fieldCount) {
+          fieldFrequency = gramFieldCount / fieldCount;
+        }
+      }
       //      function = indri::query::TermScoreFunctionFactory::get( _smoothing, gramFrequency );
-      function = indri::query::TermScoreFunctionFactory::get( _smoothing, gramCount, collectionCount, 0 , 0 );
+      function = indri::query::TermScoreFunctionFactory::get( _smoothing, gramCount, collectionCount, 0 , 0, fieldFrequency );
     }
 
     // now, aggregate scores for each retrieved item
@@ -433,7 +441,7 @@ void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecor
       _countGrams(fieldName);
     }
 
-    _scoreGrams();
+    _scoreGrams(fieldName);
     _sortGrams();
 
     for (unsigned int i = 0; i < _vectors.size(); i++)
