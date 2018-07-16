@@ -38,6 +38,9 @@ namespace indri
       lemur::api::DOCID_T _maximumDocument;
       int _documentOccurrences;
       int _documentCount;
+      UINT64 _collSize;
+      UINT64 _collOccurrences;
+
 
       EvaluatorNode::MResults _results;
 

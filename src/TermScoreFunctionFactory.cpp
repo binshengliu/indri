@@ -40,7 +40,7 @@ static void termscorefunctionfactory_parse( indri::api::Parameters& converted, c
 // it is finished with it.
 //
 
-indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( const std::string& stringSpec, double occurrences, double contextSize, int documentOccurrences, int documentCount, double fieldFrequency) {
+indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( const std::string& stringSpec, double occurrences, double contextSize, int documentOccurrences, int documentCount, double collOccurrences, double collSize) {
   indri::api::Parameters spec;
   termscorefunctionfactory_parse( spec, stringSpec );
   std::string method = spec.get( "method", "dirichlet" );
@@ -56,9 +56,17 @@ indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( co
   if( method == "lbs" ) {
     // dirichlet -- takes parameter "mu"
     double mu = spec.get( "mu", 2500 );
-    double beta = spec.get( "beta", 0.5);
+    double beta = spec.get( "beta", 0.0);
     double docmu=spec.get("documentMu",-1.0); // default is no doc-level smoothing
-    return new indri::query::LbsTermScoreFunction( mu, beta, fieldFrequency, collectionFrequency, docmu );
+    double collFrequency = 0.0;
+    if (collSize) {
+      collFrequency = collOccurrences / collSize;
+    } else {
+      collFrequency = 0.0;
+      beta = 0.0;
+    }
+
+    return new indri::query::LbsTermScoreFunction( mu, beta, collectionFrequency,  collFrequency, docmu );
   } else if( method == "dirichlet" || method == "d" || method == "dir" ) {
     // dirichlet -- takes parameter "mu"
     double mu = spec.get( "mu", 2500 );

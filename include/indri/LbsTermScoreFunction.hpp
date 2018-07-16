@@ -36,9 +36,9 @@ namespace indri
       double _muBetaTimesFrequency;
 
     public:
-      LbsTermScoreFunction( double mu, double beta, double fieldFrequency, double collectionFrequency, double docmu=-1.0 ) {
-        _fieldFrequency = fieldFrequency;
-        _collectionFrequency = collectionFrequency;
+      LbsTermScoreFunction( double mu, double beta, double contextFrequency, double collFrequency, double docmu=-1.0 ) {
+        _fieldFrequency = contextFrequency;
+        _collectionFrequency = collFrequency;
         _mu = mu;
         _beta = beta;
         _muBetaTimesFrequency = _mu * ((_beta * _fieldFrequency) + ((1 - beta) * _collectionFrequency));

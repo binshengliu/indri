@@ -151,7 +151,7 @@ namespace indri
 
           scorerNode->setNodeName( oldNode->nodeName() );
           scorerNode->setSmoothing( oldNode->getSmoothing() );
-          scorerNode->setStatistics( oldNode->getOccurrences(), oldNode->getContextSize(), oldNode->getDocumentOccurrences(), oldNode->getDocumentCount() );
+          scorerNode->setStatistics( oldNode->getOccurrences(), oldNode->getContextSize(), oldNode->getDocumentOccurrences(), oldNode->getDocumentCount(), oldNode->getCollOccurrences(), oldNode->getCollSize() );
 
           delete newNode;
           result = defaultAfter( oldNode, scorerNode );

@@ -74,9 +74,9 @@
 
 #include <stdexcept>
 
-indri::query::TermScoreFunction* indri::infnet::InferenceNetworkBuilder::_buildTermScoreFunction( const std::string& smoothing, double occurrences, double contextSize, int documentOccurrences, int documentCount ) const {
+indri::query::TermScoreFunction* indri::infnet::InferenceNetworkBuilder::_buildTermScoreFunction( const std::string& smoothing, double occurrences, double contextSize, int documentOccurrences, int documentCount, double collOccurrences, double collSize ) const {
   double collectionFrequency;
-  return indri::query::TermScoreFunctionFactory::get( smoothing, occurrences, contextSize, documentOccurrences, documentCount, 0.0 );
+  return indri::query::TermScoreFunctionFactory::get( smoothing, occurrences, contextSize, documentOccurrences, documentCount, collOccurrences, collSize );
 }
 
 indri::infnet::InferenceNetworkBuilder::InferenceNetworkBuilder( indri::collection::Repository& repository, indri::lang::ListCache& cache, int resultsRequested, int maxWildcardTerms ) :
@@ -700,7 +700,9 @@ void indri::infnet::InferenceNetworkBuilder::after( indri::lang::TermFrequencySc
                                         termScorerNode->getOccurrences(),
                                         termScorerNode->getContextSize(),
                                         termScorerNode->getDocumentOccurrences(),
-                                        termScorerNode->getDocumentCount());
+                                        termScorerNode->getDocumentCount(),
+                                        termScorerNode->getCollOccurrences(),
+                                        termScorerNode->getCollSize());
 
     if( termScorerNode->getOccurrences() > 0 ) {
       bool stopword = false;
@@ -751,7 +753,9 @@ void indri::infnet::InferenceNetworkBuilder::after( indri::lang::RawScorerNode* 
                                         rawScorerNode->getOccurrences(),
                                         rawScorerNode->getContextSize(),
                                         rawScorerNode->getDocumentOccurrences(),
-                                        rawScorerNode->getDocumentCount() );
+                                        rawScorerNode->getDocumentCount(),
+                                        rawScorerNode->getCollOccurrences(),
+                                        rawScorerNode->getCollSize());
     
     if( rawScorerNode->getOccurrences() > 0 && iterator != 0 ) {
       ListIteratorNode* rawIterator = 0;

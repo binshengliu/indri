@@ -26,7 +26,7 @@ namespace indri
   {
     class TermScoreFunctionFactory {
     public:
-      static TermScoreFunction* get( const std::string& spec, double occurences, double contextSize, int documentOccurrences = 0, int documentCount = 0, double fieldFrequency = 0.0 );
+      static TermScoreFunction* get( const std::string& spec, double occurences, double contextSize, int documentOccurrences = 0, int documentCount = 0, double collOccurrences = 0.0, double collSize = 0.0 );
     };
   }
 }
