@@ -17,7 +17,9 @@
 //
 
 #include "indri/RelevanceModel.hpp"
+#include "indri/TrecRunFile.hpp"
 #include <math.h>
+#include <numeric>
 
 //
 // RelevanceModel
@@ -87,14 +89,24 @@ bool isValidWord(const string & word)
   const char * chArray = word.c_str();
   size_t pos = 0;
 
+  bool allNum = true;
   while (pos < length)
-  { 
+  {
+    if (isalpha((unsigned char)*(chArray+pos)) != 0) {
+      allNum = false;
+    }
+
     if(isalnum((unsigned char)*(chArray+pos)) == 0)
     {
       return false;
     }
     pos ++;
   }
+
+  if (allNum) {
+    return false;
+  }
+
   return true;
 }
 
@@ -151,6 +163,74 @@ void indri::query::RelevanceModel::_countGrams() {
         } else {
           // no counts yet in this document, so add an entry
           (*gramCounts)->counts.push_back( std::make_pair( i, 1 ) );
+        }
+      }
+    }
+  }
+}
+
+void indri::query::RelevanceModel::_countGrams(std::string fieldName) {
+  // for each query result
+  for (size_t i = 0; i < _vectors.size(); i++) {
+    // run through the text, extracting n-grams
+    indri::api::DocumentVector* v = _vectors[i];
+    std::vector<int>& positions = v->positions();
+    std::vector<std::string>& stems = v->stems();
+    std::vector<indri::api::DocumentVector::Field> &fields = v->fields();
+    for (size_t f = 0; f < fields.size(); ++f) {
+      if (fields[f].name != fieldName) {
+        continue;
+      }
+
+      int begin = fields[f].begin;
+      int end = fields[f].end;
+      // begin is zero, use end as the length.
+      _results[i].end += (end - begin);
+
+      // for each word position in the text
+      for (int j = begin; j < end; j++) {
+        int maxGram = std::min(_maxGrams, end - j);
+
+        // extract every possible n-gram that starts at this position
+        // up to _maxGrams in length
+        for( int n = 1; n <= maxGram; n++ ) {
+          GramCounts* newCounts = new GramCounts;
+          bool containsOOV = false;
+
+          // build the gram
+          for( int k = 0; k < n; k++ ) {
+            if( positions[ k + j ] == 0 || (! isValidWord(stems[ positions[ k + j ] ])) ) {
+              containsOOV = true;
+              break;
+            }
+
+            newCounts->gram.terms.push_back( stems[ positions[ k + j ] ] );
+          }
+
+          if( containsOOV ) {
+            // if this contanied OOV, all larger n-grams
+            // starting at this point also will
+            delete newCounts;
+            break;
+          }
+
+          GramCounts** gramCounts = 0;        
+          gramCounts = _gramTable.find( &newCounts->gram );
+
+          if( gramCounts == 0 ) {
+            _gramTable.insert( &newCounts->gram, newCounts );
+            gramCounts = &newCounts;
+          } else {
+            delete newCounts;
+          }
+
+          if( (*gramCounts)->counts.size() && (*gramCounts)->counts.back().first == i ) {
+            // we already have some counts going for this query result, so just add this one
+            (*gramCounts)->counts.back().second++;
+          } else {
+            // no counts yet in this document, so add an entry
+            (*gramCounts)->counts.push_back( std::make_pair( i, 1 ) );
+          }
         }
       }
     }
@@ -219,6 +299,9 @@ void indri::query::RelevanceModel::_scoreGrams() {
         c++;
       }
 
+      if (contextLength == 0) {
+        continue;
+      }
       // determine the score for this term
       if( function != 0 ) {
         // log probability here
@@ -278,7 +361,6 @@ static void _logtoposterior(std::vector<indri::api::ScoredExtentResult> &res) {
   }
 }
 
-
 //
 // generate
 //
@@ -324,3 +406,51 @@ void indri::query::RelevanceModel::generate( const std::string& query, const std
   }
 }
 
+//
+// generate
+//
+
+void indri::query::RelevanceModel::generate( std::vector<indri::query::TrecRecord> &records, const std::string &fieldName ) {
+  std::vector<std::string> docNames;
+  for (size_t i = 0; i <records.size(); ++i) {
+    docNames.push_back(records[i].documentName);
+  }
+
+  try {
+    _documentIDs = _environment.documentIDsFromMetadata("docno", docNames);
+    for (size_t i = 0; i < records.size(); ++i) {
+      indri::api::ScoredExtentResult result(records[i].score, _documentIDs[i]);
+      _results.push_back(result);
+    }
+    _logtoposterior(_results);
+
+    _vectors = _environment.documentVectors( _documentIDs );
+
+    _grams.clear();
+    if (fieldName == "all") {
+      _countGrams();
+    } else {
+      _countGrams(fieldName);
+    }
+
+    _scoreGrams();
+    _sortGrams();
+
+    for (unsigned int i = 0; i < _vectors.size(); i++)
+      delete _vectors[i];
+  } catch( lemur::api::Exception& e ) {
+    LEMUR_RETHROW(e, "Couldn't generate relevance model because: ");
+  }
+}
+
+void indri::query::RelevanceModel::normalize(size_t count) {
+  count = std::min(count, _grams.size());
+  _grams.erase(_grams.begin() + count, _grams.end());
+  double sum =
+      std::accumulate(_grams.begin(), _grams.end(), 0.0,
+                      [](double sum, Gram* g) { return sum + g->weight; });
+
+  std::for_each(std::begin(_grams), std::end(_grams), [&](Gram *gram) {
+      gram->weight = gram->weight / sum;
+    });
+}
