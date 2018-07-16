@@ -48,5 +48,7 @@ test
 **/*.o
 **/lib*.a
 **/*.jar
-**/.unison
+**/.unison*
 **/.cquery_cached_index
+config.log
+compile_commands.json
