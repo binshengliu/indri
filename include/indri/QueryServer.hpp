@@ -82,6 +82,7 @@ namespace indri
       
       // fields
       virtual std::vector<std::string> fieldList() = 0;
+      virtual INT64 fieldCount( const std::string& field ) = 0;
       virtual INT64 termFieldCount( const std::string& term, const std::string& field ) = 0;
       virtual INT64 stemFieldCount( const std::string& stem, const std::string& field ) = 0;
 

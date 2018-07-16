@@ -77,6 +77,7 @@ namespace indri
       
       // fields
       std::vector<std::string> fieldList();
+      INT64 fieldCount( const std::string& field );
       INT64 termFieldCount( const std::string& term, const std::string& field );
       INT64 stemFieldCount( const std::string& stem, const std::string& field );
 

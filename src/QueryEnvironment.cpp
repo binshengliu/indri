@@ -1252,6 +1252,17 @@ INT64 indri::api::QueryEnvironment::termCount() {
   return totalTermCount;
 }
 
+INT64 indri::api::QueryEnvironment::fieldCount( const std::string& field ) {
+  // note that we should probably send these requests asynchronously
+  INT64 totalFieldCount = 0;
+
+  for( size_t i=0; i<_servers.size(); i++ ) {
+    totalFieldCount += _servers[i]->fieldCount(field);
+  }
+
+  return totalFieldCount;
+}
+
 INT64 indri::api::QueryEnvironment::termCount( const std::string& term ) {
   // note that we should probably send these requests asynchronously
   INT64 totalTermCount = 0;
