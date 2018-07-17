@@ -243,14 +243,10 @@ void indri::query::RelevanceModel::_countGrams(std::string fieldName) {
 
 void indri::query::RelevanceModel::_scoreGrams(const string& fieldName) {
   HGram::iterator iter;
-  double collectionCount = (double)_environment.termCount();
   indri::query::TermScoreFunction* function = 0;  
 
   // for each gram we've seen
   for( iter = _gramTable.begin(); iter != _gramTable.end(); iter++ ) {
-    // gather the number of times this gram occurs in the collection
-    double gramCount = 0;
-
     Gram* gram = *iter->first;
     GramCounts* gramCounts = *iter->second;
 
@@ -258,8 +254,11 @@ void indri::query::RelevanceModel::_scoreGrams(const string& fieldName) {
       // it's only important to get background frequencies if
       // we're smoothing with them; otherwise we don't care.
 
+      // gather the number of times this gram occurs in the collection
+      double collOccurrences = 0.0;
+      double collSize = (double)_environment.termCount();
       if( gram->terms.size() == 1 ) {
-        gramCount = (double)_environment.stemCount( gram->terms[0] );
+        collOccurrences = (double)_environment.stemCount( gram->terms[0] );
       } else {
         // notice that we're running a query here;
         // this is likely to be slow. (be warned)
@@ -272,20 +271,20 @@ void indri::query::RelevanceModel::_scoreGrams(const string& fieldName) {
         }
 
         s << ") ";
-        gramCount = _environment.expressionCount( s.str() );
+        collOccurrences = _environment.expressionCount( s.str() );
       }
 
-      double gramFrequency = gramCount / collectionCount;
-      double fieldFrequency = 0.0;
-      if (!fieldName.empty()) {
-        double gramFieldCount = _environment.stemFieldCount(gram->terms[0], fieldName);
-        double fieldCount = _environment.fieldCount(fieldName);
-        if (fieldCount) {
-          fieldFrequency = gramFieldCount / fieldCount;
-        }
+      double contextOccurrences = 0.0;
+      double contextSize = 0.0;
+      if (fieldName.empty()) {
+        contextOccurrences = collOccurrences;
+        contextSize = collSize;
+      } else {
+        contextOccurrences = _environment.stemFieldCount(gram->terms[0], fieldName);
+        contextSize = _environment.fieldCount(fieldName);
       }
-      //      function = indri::query::TermScoreFunctionFactory::get( _smoothing, gramFrequency );
-      function = indri::query::TermScoreFunctionFactory::get( _smoothing, gramCount, collectionCount, 0 , 0, fieldFrequency );
+
+      function = indri::query::TermScoreFunctionFactory::get( _smoothing, contextOccurrences, contextSize, 0 , 0, collOccurrences, collSize);
     }
 
     // now, aggregate scores for each retrieved item
