@@ -60,7 +60,8 @@ indri::query::TermScoreFunction* indri::query::TermScoreFunctionFactory::get( co
     double docmu=spec.get("documentMu",-1.0); // default is no doc-level smoothing
     double collFrequency = 0.0;
     if (collSize) {
-      collFrequency = collOccurrences / collSize;
+      collFrequency = collOccurrences ? (collOccurrences / collSize) :
+          1.0 / double(collSize * 2.);
     } else {
       collFrequency = 0.0;
       beta = 0.0;
