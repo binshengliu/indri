@@ -266,7 +266,7 @@ void indri::query::RelevanceModel::_scoreGrams(const string& fieldName) {
 
       double contextOccurrences = 0.0;
       double contextSize = 0.0;
-      if (fieldName.empty()) {
+      if (fieldName.empty() || fieldName == "all") {
         contextOccurrences = collOccurrences;
         contextSize = collSize;
       } else {
