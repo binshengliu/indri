@@ -89,24 +89,14 @@ bool isValidWord(const string & word)
   const char * chArray = word.c_str();
   size_t pos = 0;
 
-  bool allNum = true;
   while (pos < length)
-  {
-    if (isalpha((unsigned char)*(chArray+pos)) != 0) {
-      allNum = false;
-    }
-
+  { 
     if(isalnum((unsigned char)*(chArray+pos)) == 0)
     {
       return false;
     }
     pos ++;
   }
-
-  if (allNum) {
-    return false;
-  }
-
   return true;
 }
 
