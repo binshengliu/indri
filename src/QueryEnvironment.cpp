@@ -188,13 +188,17 @@ void indri::api::QueryEnvironment::_copyStatistics( std::vector<indri::lang::Raw
     std::vector<ScoredExtentResult>& contextSizeList = statisticsResults[ scorerNodes[i]->nodeName() ][ "contextSize" ];
     std::vector<ScoredExtentResult>& documentOccurrencesList = statisticsResults[ scorerNodes[i]->nodeName() ][ "documentOccurrences" ];
     std::vector<ScoredExtentResult>& documentCountList = statisticsResults[ scorerNodes[i]->nodeName() ][ "documentCount" ];
+    std::vector<ScoredExtentResult>& collOccurrencesList = statisticsResults[ scorerNodes[i]->nodeName() ][ "collOccurrences" ];
+    std::vector<ScoredExtentResult>& collSizeList = statisticsResults[ scorerNodes[i]->nodeName() ][ "collSize" ];
 
     double occurrences = occurrencesList[0].score;
     double contextSize = contextSizeList[0].score;
     int documentOccurrences = int(documentOccurrencesList[0].score);
     int documentCount = int(documentCountList[0].score);
+    double collOccurrences = collOccurrencesList[0].score;
+    double collSize = collSizeList[0].score;
 
-    scorerNodes[i]->setStatistics( occurrences, contextSize, documentOccurrences, documentCount );
+    scorerNodes[i]->setStatistics( occurrences, contextSize, documentOccurrences, documentCount, collOccurrences, collSize);
   }
 }
 
@@ -1250,6 +1254,17 @@ INT64 indri::api::QueryEnvironment::termCount() {
   }
 
   return totalTermCount;
+}
+
+INT64 indri::api::QueryEnvironment::fieldCount( const std::string& field ) {
+  // note that we should probably send these requests asynchronously
+  INT64 totalFieldCount = 0;
+
+  for( size_t i=0; i<_servers.size(); i++ ) {
+    totalFieldCount += _servers[i]->fieldCount(field);
+  }
+
+  return totalFieldCount;
 }
 
 INT64 indri::api::QueryEnvironment::termCount( const std::string& term ) {

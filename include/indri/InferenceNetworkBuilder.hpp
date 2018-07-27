@@ -50,7 +50,7 @@ namespace indri
         return translation;
       }
 
-      indri::query::TermScoreFunction* _buildTermScoreFunction( const std::string& smoothing, double occurrences, double contextSize, int documentOccurrences, int documentCount ) const;
+      indri::query::TermScoreFunction* _buildTermScoreFunction( const std::string& smoothing, double occurrences, double contextSize, int documentOccurrences, int documentCount, double collOccurrences = 0.0, double collSize = 0.0 ) const;
 
       void _after( indri::lang::NestedExtentInside* extentInside );
       void _after( indri::lang::NestedRawScorerNode* rawScorerNode );

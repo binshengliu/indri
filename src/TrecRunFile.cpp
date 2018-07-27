@@ -13,11 +13,17 @@ std::vector<indri::query::TrecQueryResult> indri::query::TrecRunFile::load(std::
 
   TrecQueryResult q;
   TrecRecord r;
+  std::string score;
   while (input >> r.queryNumber >> r.q0 >> r.documentName
-         >> r.rank >> r.score >> r.runID) {
+         >> r.rank >> score >> r.runID) {
     if (q.queryNumber.empty()) {
       q.queryNumber = r.queryNumber;
     }
+
+    if (score == "-inf") {
+      continue;
+    }
+    r.score = std::stod(score);
 
     if (r.queryNumber == q.queryNumber && q.records.size() >= countPerQuery) {
       continue;

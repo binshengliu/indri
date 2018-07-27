@@ -613,6 +613,11 @@ std::vector<std::string> indri::server::NetworkServerProxy::fieldList() {
   return result;
 }
 
+INT64 indri::server::NetworkServerProxy::fieldCount( const std::string& field ) {
+  assert(0);
+  return 0;
+}
+
 int indri::server::NetworkServerProxy::documentLength( lemur::api::DOCID_T documentID ) {
   indri::xml::XMLNode* request = new indri::xml::XMLNode( "document-length", i64_to_string(documentID) );
   return (int) _numericRequest( request );

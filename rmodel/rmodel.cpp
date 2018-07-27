@@ -105,7 +105,7 @@ static void usage(indri::api::Parameters param) {
   if( !param.exists( "trecrun" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" )
       || !param.exists("field")) {
    std::cerr << "rmodel usage: " << std::endl
-             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -documents=10 -maxGrams=2 -terms=50 -format=xml" << std::endl
+             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -smoothing=method:lbs,mu:2500,beta:0.3 -documents=10 -maxGrams=2 -terms=50 -format=xml" << std::endl
              << "     myfield: a valid field in the index, or \"all\" for whole document" << std::endl
              << "     myrun: a valid Indri run file (be sure to use quotes around it if there are spaces in it)" << std::endl
              << "     myindex: a valid Indri index" << std::endl
@@ -134,7 +134,7 @@ int main( int argc, char** argv ) {
     usage( param );
 
     std::string trecrun = param["trecrun"];
-    std::string rmSmoothing = ""; // eventually, we should offer relevance model smoothing
+    std::string rmSmoothing = param.get("smoothing", ""); // eventually, we should offer relevance model smoothing
     std::string field = param["field"];
     int documents = (int) param[ "documents" ];
     int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default

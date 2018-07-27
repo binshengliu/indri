@@ -48,6 +48,8 @@ namespace indri
   double _contextSize;
       int _documentOccurrences;
       int _documentCount;
+      double _collOccurrences;
+      double _collSize;
       
       EvaluatorNode::MResults _results;
 
@@ -60,6 +62,9 @@ public:
 
       int getDocumentOccurrences() const ;
       int getDocumentCount() const ;
+
+      double getCollOccurrences() const ;
+      double getCollSize() const;
 
       const ListIteratorNode* getContextNode() const;
       const ListIteratorNode* getMatchesNode() const;

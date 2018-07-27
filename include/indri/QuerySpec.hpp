@@ -1374,6 +1374,8 @@ namespace indri {
       double _maximumContextFraction;
       int _documentOccurrences; // number of documents we occur in
       int _documentCount; // total number of documents
+      double _collOccurrences;
+      double _collSize;
 
       RawExtentNode* _raw;
       RawExtentNode* _context;
@@ -1389,6 +1391,8 @@ namespace indri {
         _documentOccurrences = 0;
         _documentCount = 0;
         _smoothing = smoothing;
+        _collOccurrences = 0.0;
+        _collSize = 0.0;
       }
 
       RawScorerNode( Unpacker& unpacker ) {
@@ -1400,6 +1404,8 @@ namespace indri {
         _documentOccurrences = unpacker.getInteger( "documentOccurrences" );
         _documentCount = unpacker.getInteger( "documentCount" );
         _smoothing = unpacker.getString( "smoothing" );
+        _collOccurrences = unpacker.getDouble( "collOccurrences" );
+        _collSize = unpacker.getDouble("collSize");
       }
 
       virtual std::string typeName() const {
@@ -1453,16 +1459,26 @@ namespace indri {
       int getDocumentCount() const {
         return _documentCount;
       }
-      
+
       const std::string& getSmoothing() const {
         return _smoothing;
       }
 
-      void setStatistics( double occurrences, double contextSize, int documentOccurrences, int documentCount ) {
+      double getCollOccurrences() const {
+        return _collOccurrences;
+      }
+
+      double getCollSize() const {
+        return _collSize;
+      }
+
+      void setStatistics( double occurrences, double contextSize, int documentOccurrences, int documentCount, double collOccurrences, double collSize ) {
         _occurrences = occurrences;
         _contextSize = contextSize;
         _documentOccurrences = documentOccurrences;
         _documentCount = documentCount;
+        _collOccurrences = collOccurrences;
+        _collSize = collSize;
       }
 
       void setContext( RawExtentNode* context ) {
@@ -1526,6 +1542,8 @@ namespace indri {
       double _contextSize; // number of terms that occur within this context
       int _documentOccurrences; // number of documents we occur in
       int _documentCount; // total number of documents
+      double _collOccurrences;
+      double _collSize;
 
       std::string _text;
       std::string _smoothing;
@@ -1540,6 +1558,8 @@ namespace indri {
         _smoothing = "";
         _text = text;
         _stemmed = stemmed;
+        _collOccurrences = 0.0;
+        _collSize = 0.0;
       }
 
       TermFrequencyScorerNode( Unpacker& unpacker ) {
@@ -1550,6 +1570,8 @@ namespace indri {
         _smoothing = unpacker.getString( "smoothing" );
         _text = unpacker.getString( "text" );
         _stemmed = unpacker.getBoolean( "stemmed" );
+        _collOccurrences = unpacker.getDouble( "collOccurrences" );
+        _collSize = unpacker.getDouble("collSize");
       }
       
       const std::string& getText() const {
@@ -1605,11 +1627,21 @@ namespace indri {
         return _smoothing;
       }
 
-      void setStatistics( double occurrences, double contextSize, int documentOccurrences, int documentCount ) {
+      double getCollOccurrences() const {
+        return _collOccurrences;
+      }
+
+      double getCollSize() const {
+        return _collSize;
+      }
+
+      void setStatistics( double occurrences, double contextSize, int documentOccurrences, int documentCount, double collOccurrences, double collSize ) {
         _occurrences = occurrences;
         _contextSize = contextSize;
         _documentOccurrences = documentOccurrences;
         _documentCount = documentCount;
+        _collOccurrences = collOccurrences;
+        _collSize = collSize;
       }
 
       void setSmoothing( const std::string& smoothing ) {

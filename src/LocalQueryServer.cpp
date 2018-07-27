@@ -241,6 +241,18 @@ INT64 indri::server::LocalQueryServer::termCount() {
   return total;
 }
 
+INT64 indri::server::LocalQueryServer::fieldCount( const std::string& field ) {
+  indri::collection::Repository::index_state indexes = _repository.indexes();
+  INT64 total = 0;
+
+  for( size_t i=0; i<indexes->size(); i++ ) {
+    indri::thread::ScopedLock lock( (*indexes)[i]->statisticsLock() );
+    total += (*indexes)[i]->fieldTermCount(field);
+  }
+
+  return total;
+}
+
 INT64 indri::server::LocalQueryServer::termCountUnique() {
   indri::collection::Repository::index_state indexes = _repository.indexes();
   INT64 total = 0;

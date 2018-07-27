@@ -283,6 +283,9 @@ namespace indri
       /// \brief Return total number of terms.
       /// @return total number of terms in the aggregated collection
       INT64 termCount();
+      /// \brief Return total number of terms.
+      /// @return total number of terms in the aggregated collection
+      INT64 fieldCount( const std::string& field );
       /// \brief Return total number of term occurrences.
       /// @param term the term to count
       /// @return total frequency of this term in the aggregated collection

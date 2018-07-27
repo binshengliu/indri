@@ -30,7 +30,9 @@ indri::infnet::ContextCountAccumulator::ContextCountAccumulator( const std::stri
   _occurrences(0),
   _contextSize(0),
   _documentOccurrences(0),
-  _documentCount(0)
+  _documentCount(0),
+  _collOccurrences(0),
+  _collSize(0)
 {
 }
 
@@ -57,6 +59,14 @@ int indri::infnet::ContextCountAccumulator::getDocumentCount() const {
   return _documentCount;
 }
     
+double indri::infnet::ContextCountAccumulator::getCollOccurrences() const {
+  return _collOccurrences;
+}
+
+double indri::infnet::ContextCountAccumulator::getCollSize() const {
+  return _collSize;
+}
+
 const indri::infnet::EvaluatorNode::MResults& indri::infnet::ContextCountAccumulator::getResults() {
   // we must be finished, so now is a good time to add our results to the ListCache
   _results.clear();
@@ -65,6 +75,8 @@ const indri::infnet::EvaluatorNode::MResults& indri::infnet::ContextCountAccumul
   _results[ "contextSize" ].push_back( indri::api::ScoredExtentResult( _contextSize, 0 ) );
   _results[ "documentOccurrences" ].push_back( indri::api::ScoredExtentResult(UINT64(_documentOccurrences), 0 ) );
   _results[ "documentCount" ].push_back( indri::api::ScoredExtentResult( UINT64(_documentCount), 0 ) );
+  _results[ "collOccurrences" ].push_back( indri::api::ScoredExtentResult( UINT64(_collOccurrences), 0 ) );
+  _results[ "collSize" ].push_back( indri::api::ScoredExtentResult( UINT64(_collSize), 0 ) );
    
   return _results;
 }
