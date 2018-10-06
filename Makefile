@@ -17,6 +17,7 @@ endif
 	$(MAKE) -C harvestlinks
 	$(MAKE) -C pagerank
 	$(MAKE) -C rmodel
+	$(MAKE) -C bm25f
 	$(MAKE) -C makeprior
 	$(MAKE) -C site-search
 	$(MAKE) -C modifyfields
@@ -39,6 +40,7 @@ endif
 	$(MAKE) clean -C harvestlinks
 	$(MAKE) clean -C pagerank
 	$(MAKE) clean -C rmodel
+	$(MAKE) clean -C bm25f
 	$(MAKE) clean -C makeprior
 	$(MAKE) -C site-search clean
 	$(MAKE) -C modifyfields clean
@@ -66,6 +68,7 @@ endif
 	$(MAKE) install -C harvestlinks
 	$(MAKE) install -C pagerank
 	$(MAKE) install -C rmodel
+	$(MAKE) install -C bm25f
 	$(MAKE) install -C makeprior
 	$(MAKE) install -C modifyfields
 	$(MAKE) install -C clarity
