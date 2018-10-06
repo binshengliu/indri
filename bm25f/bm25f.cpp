@@ -24,7 +24,10 @@
 
 #include "indri/Parameters.hpp"
 #include "indri/RelevanceModel.hpp"
-#include "indri/TrecRunFile.hpp"
+#include "indri/LocalQueryServer.hpp"
+#include "indri/ScopedLock.hpp"
+
+static void parse_field( std::map<std::string, double> &m, const std::string& spec );
 
 static bool copy_parameters_to_string_vector( std::vector<std::string>& vec, indri::api::Parameters p, const std::string& parameterName ) {
   if( !p.exists(parameterName) )
@@ -102,19 +105,12 @@ static void printQuery(const std::string& query, const std::string &fieldName, i
 }
 
 static void usage(indri::api::Parameters param) {
-  if( !param.exists( "trecrun" ) || !( param.exists( "index" ) || param.exists( "server" ) ) || !param.exists( "documents" )
-      || !param.exists("field")) {
-   std::cerr << "rmodel usage: " << std::endl
-             << "   rmodel -field=myfield -trecrun=myrun -index=myindex -smoothing=method:lbs,mu:2500,beta:0.3 -documents=10 -maxGrams=2 -terms=50 -format=xml" << std::endl
-             << "     myfield: a valid field in the index, or \"all\" for whole document" << std::endl
-             << "     myrun: a valid Indri run file (be sure to use quotes around it if there are spaces in it)" << std::endl
-             << "     myindex: a valid Indri index" << std::endl
-             << "     documents: the number of documents to use to build the relevance model" << std::endl
-             << "     maxGrams (optional): maximum length (in words) of phrases to be added to the model, default is 1 (unigram)" << std::endl
-             << "     terms (optional): the number of terms of the final rm" << std::endl
-             << "     format (optional): write into xml format" << std::endl
-       ;
-   exit(-1);
+  if (!param.exists("index") || !param.exists("run")) {
+    std::cerr << "run_field usage: " << std::endl
+              << "  doc_text -index=myindex -field=myfield -run=myrun" << std::endl
+              << "     myfield: a valid field in the index, or \"all\" for whole document" << std::endl
+              << std::endl;
+    exit(-1);
   }
 }
 
@@ -127,67 +123,139 @@ static void usage(indri::api::Parameters param) {
 //    print result
 // close repository
 
+struct TrecResult {
+  std::string qno, q0, docno, indri;
+  int rank;
+  double score;
+};
+
 int main( int argc, char** argv ) {
-  try {
-    indri::api::Parameters& param = indri::api::Parameters::instance();
-    param.loadCommandLine( argc, argv );
-    usage( param );
+  cerr << "Built with " << INDRI_DISTRIBUTION << endl;
 
-    std::string trecrun = param["trecrun"];
-    std::string rmSmoothing = param.get("smoothing", ""); // eventually, we should offer relevance model smoothing
-    std::string field = param["field"];
-    int documents = (int) param[ "documents" ];
-    int maxGrams = (int) param.get( "maxGrams", 1 ); // unigram is default
-    int terms = (int)param.get("terms", 0);
-    bool xmlFormat = (param.get("format", "") == "xml");
+  indri::api::Parameters& param = indri::api::Parameters::instance();
+  param.loadCommandLine( argc, argv );
+  // usage( param );
 
-    std::ifstream ifs(trecrun);
-    if (!ifs) {
-      std::cerr << "Open " << trecrun << " failed." << std::endl;
-      return EXIT_FAILURE;
-    }
+  indri::collection::Repository r;
+  r.openRead(param["index"]);
 
-    indri::api::QueryEnvironment environment;
-    open_indexes( environment, param );
+  int k1 = param.get("k1");
 
-    indri::query::TrecRunFile trec;
-    std::vector<indri::query::TrecQueryResult> results = trec.load(ifs, documents);
+  std::string bStringSpec = param["Bf"];
+  std::map<std::string, double> fieldB;
+  parse_field(fieldB, bStringSpec);
 
-    if (xmlFormat) {
-      std::cout << "<root>" << std::endl;
-      std::cout << "  <run>" << trecrun << "</run>" << std::endl << std::endl;
-    }
+  std::string wtStringSpec = param["Wf"];
+  std::map<std::string, double> fieldWt;
+  parse_field(fieldWt, wtStringSpec);
 
-    for (size_t query_index = 0; query_index < results.size(); ++query_index) {
-      std::cerr << "\r Processed: "
-                << query_index + 1
-                << "/"
-                << results.size() << std::flush;
-      std::vector<indri::query::TrecRecord> records = results[query_index].records;
+  // Use a vector to record all the fields
+  std::vector<std::string> fields;
+  for (auto f: fieldB) {
+    fields.push_back(f.first);
+  }
+  std::set<std::string> fieldSet(fields.begin(), fields.end());
 
-      indri::query::RelevanceModel model( environment, rmSmoothing, maxGrams, documents );
-      model.generate(records, field);
-      if (terms != 0) {
-        model.normalize(terms);
-      }
+  indri::collection::Repository::index_state state = r.indexes();
+  indri::index::Index* index = (*state)[0];
 
-      const std::vector<indri::query::RelevanceModel::Gram*>& grams = model.getGrams();
-      if (xmlFormat) {
-        printQuery(results[query_index].queryNumber, field, documents, grams);
-      } else {
-        printGrams( results[query_index].queryNumber, grams );
-      }
-    }
+  double totalDocumentCount = index->documentCount();
 
-    if (xmlFormat) {
-      std::cout << "</root>" << std::endl;
-    }
-  } catch( lemur::api::Exception& e ) {
-    LEMUR_ABORT(e);
-  } catch( ... ) {
-    std::cout << "Caught an unhandled exception" << std::endl;
+  // Average field length;
+  std::map<std::string, double> avgFieldLen;
+  for (auto f: fields) {
+    double len = index->fieldTermCount(f) / totalDocumentCount;
+    avgFieldLen[f] = len;
   }
 
+  std::string term = "obama";
+  std::string stem = r.processTerm(term);
+
+  indri::thread::ScopedLock( index->iteratorLock() );
+
+  indri::index::DocListIterator* iter = index->docListIterator( stem );
+  if (iter == NULL) return 0;
+
+  iter->startIteration();
+
+  indri::index::DocListIterator::DocumentData* entry;
+  std::map<lemur::api::DOCID_T, double> docScores;
+  for( iter->startIteration(); iter->finished() == false; iter->nextEntry() ) {
+    entry = (indri::index::DocListIterator::DocumentData*) iter->currentEntry();
+
+    const indri::index::TermList* termList = index->termList( entry->document );
+    indri::api::DocumentVector* result = new indri::api::DocumentVector( index, termList);
+    std::vector<indri::api::DocumentVector::Field>& fields = result->fields();
+    std::vector<std::string>& stems = result->stems();
+    const std::vector<int>& positions = result->positions();
+    std::map<std::string, int> fOcc;
+    std::map<std::string, int> docFieldLen;
+    for (size_t f = 0; f < fields.size(); f++) {
+      std::string fn = fields[f].name;
+      // Not the field we want.
+      if (fieldSet.find(fn) == fieldSet.end()) {
+        continue;
+      }
+
+      // Accumulate field length
+      if (docFieldLen.find(fn) == docFieldLen.end()) {
+        docFieldLen[fn] = 0;
+      }
+      docFieldLen[fn] += fields[f].end - fields[f].begin;
+
+      // Accumulate term field occurrences
+      size_t count = 0;
+      for (size_t pos = fields[f].begin; pos < fields[f].end; ++pos) {
+        if (stems[positions[pos]] == stem) {
+          if (fOcc.find(fields[f].name) == fOcc.end()) {
+            fOcc[fields[f].name] = 0;
+          }
+          fOcc[fields[f].name] += 1;
+        }
+      }
+      std::cout << term << " " << fields[f].name << " " << count << std::endl;
+    }
+
+    double pseudoFreq = 0;
+    for (auto it: fOcc) {
+      std::string f = it.first;
+      int occ = it.second;
+
+      double fieldFreq = occ / (1 + fieldB[f] * (docFieldLen[f] / avgFieldLen[f] - 1));
+      pseudoFreq += fieldWt[f] * fieldFreq;
+    }
+
+    double tf = pseudoFreq / (k1 + pseudoFreq);
+
+    double termDocCount = index->documentCount(term);
+    double idf = (totalDocumentCount - termDocCount + 0.5) / (termDocCount + 0.5);
+
+    docScores[0] += tf * idf;
+  }
+
+  delete iter;
+
   return 0;
+}
+
+static void parse_field( std::map<std::string, double> &m, const std::string& spec ) {
+  int nextComma = 0;
+  int nextColon = 0;
+  int  location = 0;
+
+  for( location = 0; location < spec.length(); ) {
+    nextComma = spec.find( ',', location );
+    nextColon = spec.find( ':', location );
+
+    std::string key = spec.substr( location, nextColon-location );
+    double value = std::stod(spec.substr( nextColon+1, nextComma-nextColon-1 ));
+
+    m[key] = value;
+
+    if( nextComma > 0 )
+      location = nextComma+1;
+    else
+      location = spec.size();
+  }
 }
 
