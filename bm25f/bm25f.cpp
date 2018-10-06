@@ -64,46 +64,6 @@ static void open_indexes( indri::api::QueryEnvironment& environment, indri::api:
     environment.setScoringRules( smoothingRules );
 }
 
-static void printGrams( const std::string& query, const std::vector<indri::query::RelevanceModel::Gram*>& grams ) {
-  std::cout << "# query: " << query << std::endl;
-  for( size_t j=0; j<grams.size(); j++ ) {
-    std::cout << std::setw(15)
-              << std::setprecision(15)
-              << std::fixed
-              << grams[j]->weight << " ";
-    std::cout << grams[j]->terms.size() << " ";
-
-    for( size_t k=0; k<grams[j]->terms.size(); k++ ) {
-      std::cout << grams[j]->terms[k] << " ";
-    }
-
-    std::cout << std::endl;
-  }
-}
-
-static void printQuery(const std::string& query, const std::string &fieldName, int documents,
-                        const std::vector<indri::query::RelevanceModel::Gram*>& grams) {
-  std::cout << "  <model query=\"" << query
-            << "\" documents=\"" << documents
-            << "\" field=\"" << fieldName
-            << "\">" << std::endl;
-  for( size_t j=0; j<grams.size(); j++ ) {
-    std::cout << "    ";
-    std::cout << std::setw(15)
-              << std::setprecision(15)
-              << std::fixed
-              << grams[j]->weight << " ";
-
-    for( size_t k=0; k<grams[j]->terms.size(); k++ ) {
-      std::cout << grams[j]->terms[k] << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  std::cout << "  </model>" << std::endl;
-  std::cout << std::endl;
-}
-
 static void usage(indri::api::Parameters param) {
   if (!param.exists("index") || !param.exists("run")) {
     std::cerr << "run_field usage: " << std::endl
@@ -123,117 +83,129 @@ static void usage(indri::api::Parameters param) {
 //    print result
 // close repository
 
-struct TrecResult {
-  std::string qno, q0, docno, indri;
-  int rank;
-  double score;
-};
-
 int main( int argc, char** argv ) {
-  cerr << "Built with " << INDRI_DISTRIBUTION << endl;
+  try {
+    cerr << "Built with " << INDRI_DISTRIBUTION << endl;
 
-  indri::api::Parameters& param = indri::api::Parameters::instance();
-  param.loadCommandLine( argc, argv );
-  // usage( param );
+    indri::api::Parameters& param = indri::api::Parameters::instance();
+    param.loadCommandLine( argc, argv );
+    // usage( param );
 
-  indri::collection::Repository r;
-  r.openRead(param["index"]);
+    indri::collection::Repository r;
+    r.openRead(param["index"]);
 
-  int k1 = param.get("k1");
+    int k1 = param.get("k1");
 
-  std::string bStringSpec = param["Bf"];
-  std::map<std::string, double> fieldB;
-  parse_field(fieldB, bStringSpec);
+    std::string bStringSpec = param["Bf"];
+    std::map<std::string, double> fieldB;
+    parse_field(fieldB, bStringSpec);
 
-  std::string wtStringSpec = param["Wf"];
-  std::map<std::string, double> fieldWt;
-  parse_field(fieldWt, wtStringSpec);
+    std::string wtStringSpec = param["Wf"];
+    std::map<std::string, double> fieldWt;
+    parse_field(fieldWt, wtStringSpec);
 
-  // Use a vector to record all the fields
-  std::vector<std::string> fields;
-  for (auto f: fieldB) {
-    fields.push_back(f.first);
-  }
-  std::set<std::string> fieldSet(fields.begin(), fields.end());
+    // Use a vector to record all the fields
+    std::vector<std::string> fields;
+    for (auto f: fieldB) {
+      fields.push_back(f.first);
+    }
+    std::set<std::string> fieldSet(fields.begin(), fields.end());
 
-  indri::collection::Repository::index_state state = r.indexes();
-  indri::index::Index* index = (*state)[0];
+    indri::collection::Repository::index_state state = r.indexes();
+    indri::index::Index* index = (*state)[0];
 
-  double totalDocumentCount = index->documentCount();
+    double totalDocumentCount = index->documentCount();
 
-  // Average field length;
-  std::map<std::string, double> avgFieldLen;
-  for (auto f: fields) {
-    double len = index->fieldTermCount(f) / totalDocumentCount;
-    avgFieldLen[f] = len;
-  }
-
-  std::string term = "obama";
-  std::string stem = r.processTerm(term);
-
-  indri::thread::ScopedLock( index->iteratorLock() );
-
-  indri::index::DocListIterator* iter = index->docListIterator( stem );
-  if (iter == NULL) return 0;
-
-  iter->startIteration();
-
-  indri::index::DocListIterator::DocumentData* entry;
-  std::map<lemur::api::DOCID_T, double> docScores;
-  for( iter->startIteration(); iter->finished() == false; iter->nextEntry() ) {
-    entry = (indri::index::DocListIterator::DocumentData*) iter->currentEntry();
-
-    const indri::index::TermList* termList = index->termList( entry->document );
-    indri::api::DocumentVector* result = new indri::api::DocumentVector( index, termList);
-    std::vector<indri::api::DocumentVector::Field>& fields = result->fields();
-    std::vector<std::string>& stems = result->stems();
-    const std::vector<int>& positions = result->positions();
-    std::map<std::string, int> fOcc;
-    std::map<std::string, int> docFieldLen;
-    for (size_t f = 0; f < fields.size(); f++) {
-      std::string fn = fields[f].name;
-      // Not the field we want.
-      if (fieldSet.find(fn) == fieldSet.end()) {
-        continue;
-      }
-
-      // Accumulate field length
-      if (docFieldLen.find(fn) == docFieldLen.end()) {
-        docFieldLen[fn] = 0;
-      }
-      docFieldLen[fn] += fields[f].end - fields[f].begin;
-
-      // Accumulate term field occurrences
-      size_t count = 0;
-      for (size_t pos = fields[f].begin; pos < fields[f].end; ++pos) {
-        if (stems[positions[pos]] == stem) {
-          if (fOcc.find(fields[f].name) == fOcc.end()) {
-            fOcc[fields[f].name] = 0;
-          }
-          fOcc[fields[f].name] += 1;
-        }
-      }
-      std::cout << term << " " << fields[f].name << " " << count << std::endl;
+    // Average field length;
+    std::map<std::string, double> avgFieldLen;
+    for (auto f: fields) {
+      double len = index->fieldTermCount(f) / totalDocumentCount;
+      avgFieldLen[f] = len;
     }
 
-    double pseudoFreq = 0;
-    for (auto it: fOcc) {
-      std::string f = it.first;
-      int occ = it.second;
+    std::string term = "okapi";
+    std::string stem = r.processTerm(term);
 
-      double fieldFreq = occ / (1 + fieldB[f] * (docFieldLen[f] / avgFieldLen[f] - 1));
-      pseudoFreq += fieldWt[f] * fieldFreq;
+    std::vector<std::string> stems;
+    std::vector<indri::index::DocListIterator*> listIters;
+
+    indri::thread::ScopedLock( index->iteratorLock() );
+
+    for (auto s: stems) {
+      listIters.push_back(index->docListIterator(s));
     }
 
-    double tf = pseudoFreq / (k1 + pseudoFreq);
+    indri::index::DocListIterator* iter = index->docListIterator( stem );
+    if (iter == NULL) return 0;
+
+    iter->startIteration();
 
     double termDocCount = index->documentCount(term);
-    double idf = (totalDocumentCount - termDocCount + 0.5) / (termDocCount + 0.5);
+    indri::index::DocListIterator::DocumentData* entry;
+    std::map<lemur::api::DOCID_T, double> docScores;
+    int i = 0;
+    for( iter->startIteration(); iter->finished() == false; iter->nextEntry() ) {
+      i += 1;
+      entry = (indri::index::DocListIterator::DocumentData*) iter->currentEntry();
+      std::cerr << entry->document << " " << i << "/" << termDocCount << std::endl;
 
-    docScores[0] += tf * idf;
+      const indri::index::TermList* termList = index->termList( entry->document );
+      indri::api::DocumentVector* result = new indri::api::DocumentVector( index, termList);
+      std::vector<indri::api::DocumentVector::Field>& fields = result->fields();
+      std::vector<std::string>& stems = result->stems();
+      const std::vector<int>& positions = result->positions();
+      std::map<std::string, int> fOcc;
+      std::map<std::string, int> docFieldLen;
+      for (size_t f = 0; f < fields.size(); f++) {
+        std::string fn = fields[f].name;
+        // Not the field we want.
+        if (fieldSet.find(fn) == fieldSet.end()) {
+          continue;
+        }
+
+        // Accumulate field length
+        if (docFieldLen.find(fn) == docFieldLen.end()) {
+          docFieldLen[fn] = 0;
+        }
+        docFieldLen[fn] += fields[f].end - fields[f].begin;
+
+        // Accumulate term field occurrences
+        size_t count = 0;
+        for (size_t pos = fields[f].begin; pos < fields[f].end; ++pos) {
+          if (stems[positions[pos]] == stem) {
+            if (fOcc.find(fields[f].name) == fOcc.end()) {
+              fOcc[fields[f].name] = 0;
+            }
+            fOcc[fields[f].name] += 1;
+          }
+        }
+        // std::cout << term << " " << fields[f].name << " " << count << std::endl;
+      }
+
+      double pseudoFreq = 0;
+      for (auto it: fOcc) {
+        std::string f = it.first;
+        int occ = it.second;
+
+        double fieldFreq = occ / (1 + fieldB[f] * (docFieldLen[f] / avgFieldLen[f] - 1));
+        pseudoFreq += fieldWt[f] * fieldFreq;
+      }
+
+      double tf = pseudoFreq / (k1 + pseudoFreq);
+
+      double idf = (totalDocumentCount - termDocCount + 0.5) / (termDocCount + 0.5);
+
+      docScores[0] += tf * idf;
+    }
+
+    delete iter;
   }
-
-  delete iter;
+  catch( lemur::api::Exception& e ) {
+    LEMUR_ABORT(e);
+  } catch( ... ) {
+    std::cout << "Caught unhandled exception" << std::endl;
+    return -1;
+  }
 
   return 0;
 }
