@@ -133,8 +133,10 @@ class QueryBM25F {
   void query(int count) {
     for (auto& t: _terms) {
       auto *iter = _index->docListIterator(t);
-      iter->startIteration();
-      _lists.push_back(iter);
+      if (iter) {
+        iter->startIteration();
+        _lists.push_back(iter);
+      }
     }
 
     std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
@@ -261,7 +263,7 @@ class QueryBM25F {
     indri::index::DocListIterator::DocumentData* entry = NULL;
     indri::index::DocListIterator *iterToMove = NULL;
     for (auto iter: _lists) {
-      if (iter->finished()) {
+      if (!iter || iter->finished()) {
         continue;
       }
 
