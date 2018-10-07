@@ -28,7 +28,7 @@
 #include "indri/ScopedLock.hpp"
 #include <queue>
 
-static void parse_field( std::map<std::string, double> &m, const std::string& spec );
+static std::map<std::string, double> parse_field_spec(const std::string& spec);
 
 static bool copy_parameters_to_string_vector( std::vector<std::string>& vec, indri::api::Parameters p, const std::string& parameterName ) {
   if( !p.exists(parameterName) )
@@ -305,13 +305,8 @@ int main( int argc, char** argv ) {
 
     int k1 = param.get("k1");
 
-    std::string bStringSpec = param["Bf"];
-    std::map<std::string, double> fieldB;
-    parse_field(fieldB, bStringSpec);
-
-    std::string wtStringSpec = param["Wf"];
-    std::map<std::string, double> fieldWt;
-    parse_field(fieldWt, wtStringSpec);
+    std::map<std::string, double> fieldB = parse_field_spec(param["Bf"]);
+    std::map<std::string, double> fieldWt = parse_field_spec(param["Wf"]);
 
     // Use a vector to record all the fields
     std::vector<std::string> fields;
@@ -332,7 +327,9 @@ int main( int argc, char** argv ) {
   return 0;
 }
 
-static void parse_field( std::map<std::string, double> &m, const std::string& spec ) {
+static std::map<std::string, double> parse_field_spec(const std::string& spec) {
+  std::map<std::string, double> m;
+
   int nextComma = 0;
   int nextColon = 0;
   int  location = 0;
@@ -351,5 +348,7 @@ static void parse_field( std::map<std::string, double> &m, const std::string& sp
     else
       location = spec.size();
   }
+
+  return m;
 }
 
