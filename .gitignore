@@ -52,3 +52,4 @@ test
 **/.cquery_cached_index
 config.log
 compile_commands.json
+bm25f/bm25f
