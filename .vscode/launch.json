@@ -5,6 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(gdb) bm25f",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bm25f/bm25f",
+            "args": ["-index=/home/bsl/code/indri-data/cw09b-index/", "-query=okapi", "-k1=10", "-Bf=title:10,body:1", "-Wf=title:8,body:1"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "name": "(gdb) IndriBuildIndex",
             "type": "cppdbg",
             "request": "launch",
