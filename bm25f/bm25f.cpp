@@ -293,8 +293,10 @@ class QueryBM25F {
 
       // Accumulate term field occurrences
       for (size_t pos = docFields[fieldIndex].begin; pos < docFields[fieldIndex].end; ++pos) {
-        const std::string &term = queryStemPos[positions[pos]];
-        termFieldOccur[term][fieldName] += 1;
+        if (queryStemPos.find(positions[pos]) != queryStemPos.end()){
+          const std::string &term = queryStemPos[positions[pos]];
+          termFieldOccur[term][fieldName] += 1;
+        }
       }
     }
   }
