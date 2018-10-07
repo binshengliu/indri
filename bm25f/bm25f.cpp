@@ -298,33 +298,6 @@ class QueryBM25F {
       }
     }
   }
-
-  indri::index::DocListIterator::DocumentData* next(std::vector<indri::index::DocListIterator *> &docIters) {
-    indri::index::DocListIterator::DocumentData* entry = NULL;
-    indri::index::DocListIterator *iterToAdvance = NULL;
-    for (indri::index::DocListIterator *docIter: docIters) {
-      if (!docIter || docIter->finished()) {
-        continue;
-      }
-
-      indri::index::DocListIterator::DocumentData* current = docIter->currentEntry();
-      if (!entry) {
-        entry = current;
-        iterToAdvance = docIter;
-      } else {
-        if (current->document < entry->document) {
-          entry = current;
-          iterToAdvance = docIter;
-        }
-      }
-    }
-
-    if (iterToAdvance){
-      iterToAdvance->nextEntry();
-    }
-
-    return entry;
-  }
 };
 
 // open repository
