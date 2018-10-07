@@ -91,7 +91,6 @@ struct DocScore {
 
 class QueryBM25F {
  private:
-  std::vector<std::string> _terms;
   indri::collection::Repository _repo;
   indri::index::Index *_index;
   std::vector<indri::index::DocListIterator *> _lists;
@@ -103,14 +102,9 @@ class QueryBM25F {
   double _k1;
   indri::api::QueryEnvironment _environment;
  public:
-  QueryBM25F(std::string index, std::string query, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1) {
+  QueryBM25F(std::string index, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1) {
     _repo.openRead(index);
 
-    std::istringstream buf(query);
-    std::istream_iterator<std::string> beg(buf), end;
-    for (auto t: std::vector<std::string>(beg, end)) {
-      _terms.push_back(_repo.processTerm(t));
-    }
     indri::collection::Repository::index_state state = _repo.indexes();
     _index = (*state)[0];
 
@@ -130,8 +124,15 @@ class QueryBM25F {
     _environment.addIndex(index);
   };
 
-  void query(int count) {
-    for (auto& t: _terms) {
+  void query(std::string qno, std::string query, int count) {
+    std::vector<std::string> terms;
+    std::istringstream buf(query);
+    std::istream_iterator<std::string> beg(buf), end;
+    for (auto t: std::vector<std::string>(beg, end)) {
+      terms.push_back(_repo.processTerm(t));
+    }
+
+    for (auto& t: terms) {
       auto *iter = _index->docListIterator(t);
       if (iter) {
         iter->startIteration();
@@ -150,7 +151,7 @@ class QueryBM25F {
       const std::vector<int>& positions = dv->positions();
       std::map<std::string, std::map<std::string, int>> fOcc;
       std::map<std::string, int> docFieldLen;
-      getFieldInfo(docFieldLen, fOcc, dv, _terms);
+      getFieldInfo(docFieldLen, fOcc, dv, terms);
       delete dv;
 
       double pseudoFreq = 0;
@@ -196,7 +197,6 @@ class QueryBM25F {
     std::vector<std::string> docnos = _environment.documentMetadata(docids, "docno");
 
     // 1 Q0 clueweb09-en0007-63-02101 1 -3.34724 indri
-    std::string qno = "1";
     int rank = 1;
     for (int i = s.size() - 1; i >= 0; --i) {
       std::cout << qno << " Q0 " << docnos[i] << " " << rank
@@ -306,6 +306,7 @@ int main( int argc, char** argv ) {
 
     std::string index = param["index"];
     std::string query = param["query"];
+    std::string qno = param.get("qno", "1");
     int count = param.get("count", 1000);
 
     int k1 = param.get("k1");
@@ -324,8 +325,8 @@ int main( int argc, char** argv ) {
       fields.push_back(f.first);
     }
 
-    QueryBM25F bm25f(index, query, fields, fieldB, fieldWt, k1);
-    bm25f.query(count);
+    QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1);
+    bm25f.query("1", query, count);
   }
   catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
