@@ -66,10 +66,10 @@ static void open_indexes( indri::api::QueryEnvironment& environment, indri::api:
 }
 
 static void usage(indri::api::Parameters param) {
-  if (!param.exists("index") || !param.exists("run")) {
-    std::cerr << "run_field usage: " << std::endl
-              << "  doc_text -index=myindex -field=myfield -run=myrun" << std::endl
-              << "     myfield: a valid field in the index, or \"all\" for whole document" << std::endl
+  if (!param.exists("index") || !param.exists("query")
+      || !param.exists("fieldB") || !param.exists("fieldWt") || !param.exists("k1")) {
+    std::cerr << "bm25f usage: " << std::endl
+              << "  bm25f -index=myindex -qno=1 -query=myquery -count=1000 -k1=10 -fieldB=title:8,body:2 -fieldWt=title:6,body:1" << std::endl
               << std::endl;
     exit(-1);
   }
@@ -296,7 +296,7 @@ int main( int argc, char** argv ) {
 
     indri::api::Parameters& param = indri::api::Parameters::instance();
     param.loadCommandLine( argc, argv );
-    // usage( param );
+    usage( param );
 
     std::string index = param["index"];
     std::string query = param["query"];
@@ -314,7 +314,7 @@ int main( int argc, char** argv ) {
     }
 
     QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1);
-    bm25f.query("1", query, count);
+    bm25f.query(qno, query, count);
   }
   catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
