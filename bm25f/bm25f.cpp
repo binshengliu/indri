@@ -1,7 +1,7 @@
 
 
 /*==========================================================================
- * Copyright (c) 2004 University of Massachusetts.  All Rights Reserved.
+ * Copyright (c) 2018 RMIT University.  All Rights Reserved.
  *
  * Use of the Lemur Toolkit for Language Modeling and Information Retrieval
  * is subject to the terms of the software license set forth in the LICENSE
@@ -12,15 +12,10 @@
 */
 
 //
-// relevancemodel
+// BM25F
 //
-// 23 June 2005 -- tds
+// 08 October 2018
 //
-// Options are:
-//    index
-//    server
-//    query
-//    ngram -- default is '1' (unigram)
 
 #include "indri/Parameters.hpp"
 #include "indri/RelevanceModel.hpp"
@@ -29,41 +24,29 @@
 #include "indri/DocExtentListIterator.hpp"
 #include <queue>
 
-static std::map<std::string, double> parse_field_spec(const std::string& spec);
+static std::map<std::string, double> parse_field_spec(const std::string& spec) {
+  std::map<std::string, double> m;
 
-static bool copy_parameters_to_string_vector( std::vector<std::string>& vec, indri::api::Parameters p, const std::string& parameterName ) {
-  if( !p.exists(parameterName) )
-    return false;
+  int nextComma = 0;
+  int nextColon = 0;
+  int  location = 0;
 
-  indri::api::Parameters slice = p[parameterName];
-  
-  for( size_t i=0; i<slice.size(); i++ ) {
-    vec.push_back( slice[i] );
+  for( location = 0; location < spec.length(); ) {
+    nextComma = spec.find( ',', location );
+    nextColon = spec.find( ':', location );
+
+    std::string key = spec.substr( location, nextColon-location );
+    double value = std::stod(spec.substr( nextColon+1, nextComma-nextColon-1 ));
+
+    m[key] = value;
+
+    if( nextComma > 0 )
+      location = nextComma+1;
+    else
+      location = spec.size();
   }
 
-  return true;
-}
-
-static void open_indexes( indri::api::QueryEnvironment& environment, indri::api::Parameters& param ) {
-  if( param.exists( "index" ) ) {
-    indri::api::Parameters indexes = param["index"];
-
-    for( unsigned int i=0; i < indexes.size(); i++ ) {
-      environment.addIndex( std::string(indexes[i]) );
-    }
-  }
-
-  if( param.exists( "server" ) ) {
-    indri::api::Parameters servers = param["server"];
-
-    for( unsigned int i=0; i < servers.size(); i++ ) {
-      environment.addServer( std::string(servers[i]) );
-    }
-  }
-
-  std::vector<std::string> smoothingRules;
-  if( copy_parameters_to_string_vector( smoothingRules, param, "rule" ) )
-    environment.setScoringRules( smoothingRules );
+  return m;
 }
 
 static void usage(indri::api::Parameters param) {
@@ -260,12 +243,12 @@ class QueryBM25F {
       for (const auto &termPair: termFieldOccur) {
         const std::string &term = termPair.first;
         const std::map<std::string, int> &fieldStats = termPair.second;
-        for (const auto &it: fieldStats) {
-          const std::string &f = it.first;
-          int occ = it.second;
+        for (const auto &fieldPair: fieldStats) {
+          const std::string &fieldName = fieldPair.first;
+          int occurrences = fieldPair.second;
 
-          double fieldFreq = occ / (1 + _fieldB[f] * (docFieldLen[f] / _avgFieldLen[f] - 1));
-          pseudoFreq += _fieldWt[f] * fieldFreq;
+          double fieldFreq = occurrences / (1 + _fieldB[fieldName] * (docFieldLen[fieldName] / _avgFieldLen[fieldName] - 1));
+          pseudoFreq += _fieldWt[fieldName] * fieldFreq;
 
         }
         double termDocCount = _index->documentCount(term);
@@ -347,15 +330,6 @@ class QueryBM25F {
   }
 };
 
-// open repository
-// for each query
-//    run query
-//    get document vectors from results, save weights from retrieval
-//    extract 1-grams, 2-grams, 3-grams etc. as appropriate
-//    run background statistics on the n-grams
-//    print result
-// close repository
-
 int main( int argc, char** argv ) {
   try {
     cerr << "Built with " << INDRI_DISTRIBUTION << endl;
@@ -390,30 +364,5 @@ int main( int argc, char** argv ) {
   }
 
   return 0;
-}
-
-static std::map<std::string, double> parse_field_spec(const std::string& spec) {
-  std::map<std::string, double> m;
-
-  int nextComma = 0;
-  int nextColon = 0;
-  int  location = 0;
-
-  for( location = 0; location < spec.length(); ) {
-    nextComma = spec.find( ',', location );
-    nextColon = spec.find( ':', location );
-
-    std::string key = spec.substr( location, nextColon-location );
-    double value = std::stod(spec.substr( nextColon+1, nextComma-nextColon-1 ));
-
-    m[key] = value;
-
-    if( nextComma > 0 )
-      location = nextComma+1;
-    else
-      location = spec.size();
-  }
-
-  return m;
 }
 
