@@ -143,16 +143,18 @@ class DocIterator {
   DocIterator::entry currentEntry() {
     DocIterator::entry e;
     e.document = _termIters.top()->currentEntry()->document;
-    for (auto &docIter: _termItersMap) {
-      if (docIter.second->currentEntry()->document == e.document) {
-        e.docEntries[docIter.first] = docIter.second->currentEntry();
+    for (auto &termPair: _termItersMap) {
+      const std::string &term = termPair.first;
+      auto *iter = termPair.second;
+      if (!iter->finished() && iter->currentEntry()->document == e.document) {
+        e.docEntries[term] = iter->currentEntry();
       }
     }
     for (auto &f: _fieldIters) {
       std::string fieldName = f.first;
-      indri::index::DocExtentListIterator *fIter = f.second;
-      if (fIter->currentEntry()->document == e.document) {
-        e.fieldEntries[fieldName] = fIter->currentEntry();
+      auto *iter = f.second;
+      if (!iter->finished() && iter->currentEntry()->document == e.document) {
+        e.fieldEntries[fieldName] = iter->currentEntry();
       }
     }
 
