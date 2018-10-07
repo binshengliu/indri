@@ -304,9 +304,8 @@ int main( int argc, char** argv ) {
     int count = param.get("count", 1000);
 
     int k1 = param.get("k1");
-
-    std::map<std::string, double> fieldB = parse_field_spec(param["Bf"]);
-    std::map<std::string, double> fieldWt = parse_field_spec(param["Wf"]);
+    std::map<std::string, double> fieldB = parse_field_spec(param["fieldB"]);
+    std::map<std::string, double> fieldWt = parse_field_spec(param["fieldWt"]);
 
     // Use a vector to record all the fields
     std::vector<std::string> fields;
