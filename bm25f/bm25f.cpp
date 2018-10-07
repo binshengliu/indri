@@ -26,6 +26,7 @@
 #include "indri/RelevanceModel.hpp"
 #include "indri/LocalQueryServer.hpp"
 #include "indri/ScopedLock.hpp"
+#include "indri/DocExtentListIterator.hpp"
 #include <queue>
 
 static std::map<std::string, double> parse_field_spec(const std::string& spec);
@@ -95,49 +96,111 @@ class DocIterator {
       return lhs->currentEntry()->document > rhs->currentEntry()->document;
     }
   };
+
+  struct field_greater {
+    bool operator () (indri::index::DocExtentListIterator *lhs,
+                      indri::index::DocExtentListIterator *rhs) const {
+      return lhs->currentEntry()->document > rhs->currentEntry()->document;
+    }
+  };
+
+ public:
+  struct entry {
+    lemur::api::DOCID_T document;
+    std::map<std::string, indri::index::DocListIterator::DocumentData *> docEntries;
+    std::map<std::string, indri::index::DocExtentListIterator::DocumentExtentData *> fieldEntries;
+  };
  private:
-  std::priority_queue<indri::index::DocListIterator *, vector<indri::index::DocListIterator *>, DocIterator::greater> _docIters;
+  std::map<std::string, indri::index::DocExtentListIterator *> _fieldIters;
+  std::priority_queue<indri::index::DocListIterator *, vector<indri::index::DocListIterator *>, DocIterator::greater> _termIters;
+  std::map<std::string, indri::index::DocListIterator *> _termItersMap;
   indri::index::DocListIterator *_currentIter;
  public:
-  DocIterator(indri::index::Index *index, const std::vector<std::string> &stems):
+  DocIterator(indri::index::Index *index,
+              const std::set<std::string> &fields,
+              const std::vector<std::string> &stems):
       _currentIter(NULL) {
     for (auto& t: stems) {
       auto *iter = index->docListIterator(t);
       if (iter) {
         iter->startIteration();
         if (!iter->finished()) {
-          _docIters.push(iter);
+          _termIters.push(iter);
+          _termItersMap[t] = iter;
         }
       }
     }
-  }
 
-  indri::index::DocListIterator::DocumentData* currentEntry(){
-    return _docIters.top()->currentEntry();
-  }
-
-  bool nextEntry() {
-    if (_docIters.empty()) {
-      return false;
+    for (auto& f: fields) {
+      auto *iter = index->fieldListIterator(f);
+      if (iter) {
+        iter->startIteration();
+        _fieldIters[f] = iter;
+      }
     }
+  }
 
-    indri::index::DocListIterator *iter = _docIters.top();
-    lemur::api::DOCID_T lastId = iter->currentEntry()->document;
-    while (!_docIters.empty() && _docIters.top()->currentEntry()->document <= lastId) {
-      indri::index::DocListIterator *iter = _docIters.top();
-      _docIters.pop();
-      if (iter->nextEntry(lastId + 1)) {
-        _docIters.push(iter);
+  DocIterator::entry currentEntry() {
+    DocIterator::entry e;
+    e.document = _termIters.top()->currentEntry()->document;
+    for (auto &docIter: _termItersMap) {
+      if (docIter.second->currentEntry()->document == e.document) {
+        e.docEntries[docIter.first] = docIter.second->currentEntry();
+      }
+    }
+    for (auto &f: _fieldIters) {
+      std::string fieldName = f.first;
+      indri::index::DocExtentListIterator *fIter = f.second;
+      if (fIter->currentEntry()->document == e.document) {
+        e.fieldEntries[fieldName] = fIter->currentEntry();
       }
     }
 
-    return !_docIters.empty();
+    return e;
+  }
+
+  bool nextEntry() {
+    if (nextDocEntry()) {
+      nextFieldEntry();
+    }
+
+    return true;
+  }
+
+  void nextFieldEntry() {
+    auto docEntry = _termIters.top()->currentEntry();
+
+    for (auto &f: _fieldIters) {
+      std::string fieldName = f.first;
+      indri::index::DocExtentListIterator *fIter = f.second;
+      fIter->nextEntry(docEntry->document);
+    }
+
+    return;
+  }
+
+  bool nextDocEntry() {
+    if (_termIters.empty()) {
+      return false;
+    }
+
+    indri::index::DocListIterator *iter = _termIters.top();
+    lemur::api::DOCID_T lastId = iter->currentEntry()->document;
+    while (!_termIters.empty() && _termIters.top()->currentEntry()->document <= lastId) {
+      indri::index::DocListIterator *iter = _termIters.top();
+      _termIters.pop();
+      if (iter->nextEntry(lastId + 1)) {
+        _termIters.push(iter);
+      }
+    }
+
+    return !_termIters.empty();
   }
 
   bool finished() {
-    return _docIters.empty();
+    return _termIters.empty();
   }
-};
+  };
 
 class QueryBM25F {
  private:
@@ -183,16 +246,12 @@ class QueryBM25F {
 
     std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
     double threshold = 0;
-    DocIterator docIters(_index, stems);
-    auto dd = docIters.currentEntry();
-    while (dd) {
-      const indri::index::TermList* tl = _index->termList(dd->document);
-      const indri::api::DocumentVector* dv = new indri::api::DocumentVector(_index, tl);
-
+    DocIterator docIters(_index, _fields, stems);
+    while (!docIters.finished()) {
+      auto de = docIters.currentEntry();
       std::map<std::string, std::map<std::string, int>> termFieldOccur;
       std::map<std::string, int> docFieldLen;
-      getFieldInfo(docFieldLen, termFieldOccur, dv, stems);
-      delete dv;
+      getFieldInfo(docFieldLen, termFieldOccur, de, stems);
 
       double pseudoFreq = 0;
       double score = 0;
@@ -217,7 +276,7 @@ class QueryBM25F {
       }
 
       if (queue.size() < count || score > threshold) {
-        queue.push(DocScore(dd->document, score));
+        queue.push(DocScore(de.document, score));
         while (queue.size() > count) {
           queue.pop();
         }
@@ -225,7 +284,6 @@ class QueryBM25F {
       }
 
       docIters.nextEntry();
-      dd = docIters.currentEntry();
     }
 
     std::vector<DocScore> s;
@@ -250,52 +308,37 @@ class QueryBM25F {
 
   void getFieldInfo(std::map<std::string, int> &docFieldLen,
                     std::map<std::string, std::map<std::string, int>> &termFieldOccur,
-                    const indri::api::DocumentVector *dv,
+                    DocIterator::entry &de,
                     const std::vector<std::string> &queryStems) {
-    const std::vector<indri::api::DocumentVector::Field>& docFields = dv->fields();
-    const std::vector<std::string>& docStems = dv->stems();
-    std::map<int, std::string> queryStemPos;
-    // Find the indexes of query stems in the document, so we can
-    // avoid string comparison when counting the occurrences.
-    for (const auto &s: queryStems) {
-      size_t i;
-      for (i = 0; i < docStems.size(); ++i) {
-        if (s == docStems[i]) {
-          queryStemPos[i] = s;
-          break;
-        }
-      }
-    }
-
     // Initialize the output map, so we can access the map directly
     // later.
-    for (const auto &t: queryStems) {
-      termFieldOccur[t] = std::map<std::string, int>();
-      for (const auto &f: _fields) {
-        termFieldOccur[t][f] = 0;
+
+    for (auto &fieldPair: de.fieldEntries) {
+      const std::string &fieldName = fieldPair.first;
+      auto *fieldData = fieldPair.second;
+      docFieldLen[fieldName] = 0;
+      for (auto &e: fieldData->extents) {
+        docFieldLen[fieldName] += e.end - e.begin;
       }
     }
 
-    for (const auto &f: _fields) {
-      docFieldLen[f] = 0;
-    }
+    for (auto &docPair: de.docEntries) {
+      const std::string &term = docPair.first;
+      auto *docData = docPair.second;
 
-    const std::vector<int>& positions = dv->positions();
-    for (size_t fieldIndex = 0; fieldIndex < docFields.size(); fieldIndex++) {
-      const std::string &fieldName = docFields[fieldIndex].name;
-      // Not the field we want.
-      if (_fields.find(fieldName) == _fields.end()) {
-        continue;
-      }
+      termFieldOccur[term] = std::map<std::string, int>();
 
-      // Accumulate field length
-      docFieldLen[fieldName] += docFields[fieldIndex].end - docFields[fieldIndex].begin;
-
-      // Accumulate term field occurrences
-      for (size_t pos = docFields[fieldIndex].begin; pos < docFields[fieldIndex].end; ++pos) {
-        if (queryStemPos.find(positions[pos]) != queryStemPos.end()){
-          const std::string &term = queryStemPos[positions[pos]];
-          termFieldOccur[term][fieldName] += 1;
+      for (auto &fieldPair: de.fieldEntries) {
+        std::string fieldName = fieldPair.first;
+        termFieldOccur[term][fieldName] = 0;
+        indri::index::DocExtentListIterator::DocumentExtentData *fieldData = fieldPair.second;
+        for (auto &e: fieldData->extents) {
+          docFieldLen[fieldName] += e.end - e.begin;
+          for (auto pos: docData->positions) {
+            if (pos >= e.begin && pos < e.end) {
+              termFieldOccur[term][fieldName] += 1;
+            }
+          }
         }
       }
     }
@@ -328,7 +371,7 @@ int main( int argc, char** argv ) {
     std::map<std::string, double> fieldB = parse_field_spec(param["fieldB"]);
     std::map<std::string, double> fieldWt = parse_field_spec(param["fieldWt"]);
 
-    // Use a vector to record all the fields
+    // Use docPair vector to record all the fields
     std::vector<std::string> fields;
     for (auto f: fieldB) {
       fields.push_back(f.first);
