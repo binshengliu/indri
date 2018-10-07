@@ -90,8 +90,13 @@ struct DocScore {
 
 
 class DocIterator {
+  struct greater {
+    bool operator () (indri::index::DocListIterator *lhs, indri::index::DocListIterator *rhs) const {
+      return lhs->currentEntry()->document > rhs->currentEntry()->document;
+    }
+  };
  private:
-  std::vector<indri::index::DocListIterator *> _docIters;
+  std::priority_queue<indri::index::DocListIterator *, vector<indri::index::DocListIterator *>, DocIterator::greater> _docIters;
   indri::index::DocListIterator *_currentIter;
  public:
   DocIterator(indri::index::Index *index, const std::vector<std::string> &stems):
@@ -100,63 +105,37 @@ class DocIterator {
       auto *iter = index->docListIterator(t);
       if (iter) {
         iter->startIteration();
-        _docIters.push_back(iter);
-      }
-    }
-  }
-
-  void startIteration(){
-    for (auto *iter: _docIters) {
-      if (!iter || iter->finished()) {
-        continue;
-      }
-      iter->startIteration();
-      if (!_currentIter) {
-        _currentIter = iter;
-        continue;
-      }
-
-      if (iter->currentEntry()->document < _currentIter->currentEntry()->document) {
-        _currentIter = iter;
+        if (!iter->finished()) {
+          _docIters.push(iter);
+        }
       }
     }
   }
 
   indri::index::DocListIterator::DocumentData* currentEntry(){
-    return _currentIter->currentEntry();
+    return _docIters.top()->currentEntry();
   }
 
   bool nextEntry() {
-    lemur::api::DOCID_T lastId = 0;
-    if (_currentIter) {
-      lastId = _currentIter->currentEntry()->document;
-      _currentIter->nextEntry();
+    if (_docIters.empty()) {
+      return false;
     }
-    _currentIter = NULL;
-    for (auto *iter: _docIters) {
-      if (!iter || iter->finished()) {
-        continue;
-      }
-      if (!_currentIter) {
-        _currentIter = iter;
-      } else {
-        if (iter->currentEntry()->document < _currentIter->currentEntry()->document) {
-          _currentIter = iter;
-        }
+
+    indri::index::DocListIterator *iter = _docIters.top();
+    lemur::api::DOCID_T lastId = iter->currentEntry()->document;
+    while (!_docIters.empty() && _docIters.top()->currentEntry()->document <= lastId) {
+      indri::index::DocListIterator *iter = _docIters.top();
+      _docIters.pop();
+      if (iter->nextEntry(lastId + 1)) {
+        _docIters.push(iter);
       }
     }
 
-    return _currentIter != NULL;
+    return !_docIters.empty();
   }
 
   bool finished() {
-    for (auto *iter: _docIters) {
-      if (iter && !iter->finished()) {
-        return false;
-      }
-    }
-
-    return true;
+    return _docIters.empty();
   }
 };
 
@@ -205,7 +184,6 @@ class QueryBM25F {
     std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
     double threshold = 0;
     DocIterator docIters(_index, stems);
-    docIters.startIteration();
     auto dd = docIters.currentEntry();
     while (dd) {
       const indri::index::TermList* tl = _index->termList(dd->document);
