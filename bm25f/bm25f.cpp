@@ -144,7 +144,7 @@ class QueryBM25F {
     double threshold = 0;
     for (auto dd = next(); dd; dd = next()) {
       const indri::index::TermList* tl = _index->termList(dd->document);
-      indri::api::DocumentVector* dv = new indri::api::DocumentVector(_index, tl);
+      const indri::api::DocumentVector* dv = new indri::api::DocumentVector(_index, tl);
 
       std::map<std::string, std::map<std::string, int>> termFieldOccur;
       std::map<std::string, int> docFieldLen;
@@ -153,11 +153,11 @@ class QueryBM25F {
 
       double pseudoFreq = 0;
       double score = 0;
-      for (auto termPair: termFieldOccur) {
-        std::string term = termPair.first;
-        std::map<std::string, int> fieldStats = termPair.second;
-        for (auto it: fieldStats) {
-          std::string f = it.first;
+      for (const auto &termPair: termFieldOccur) {
+        const std::string &term = termPair.first;
+        const std::map<std::string, int> &fieldStats = termPair.second;
+        for (const auto &it: fieldStats) {
+          const std::string &f = it.first;
           int occ = it.second;
 
           double fieldFreq = occ / (1 + _fieldB[f] * (docFieldLen[f] / _avgFieldLen[f] - 1));
