@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bm25f/bm25f",
-            "args": ["-index=/home/bsl/code/indri-data/cw09b-index/", "-query=okapi", "-k1=10", "-Bf=title:10,body:1", "-Wf=title:8,body:1"],
+            "args": ["-index=/home/bsl/code/indri-data/cw09b-index/", "-query=obama", "-k1=10", "-Bf=title:10,body:1", "-Wf=title:8,body:1"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
