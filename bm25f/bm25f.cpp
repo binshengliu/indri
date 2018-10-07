@@ -89,6 +89,77 @@ struct DocScore {
 };
 
 
+class DocIterator {
+ private:
+  std::vector<indri::index::DocListIterator *> _docIters;
+  indri::index::DocListIterator *_currentIter;
+ public:
+  DocIterator(indri::index::Index *index, const std::vector<std::string> &stems):
+      _currentIter(NULL) {
+    for (auto& t: stems) {
+      auto *iter = index->docListIterator(t);
+      if (iter) {
+        iter->startIteration();
+        _docIters.push_back(iter);
+      }
+    }
+  }
+
+  void startIteration(){
+    for (auto *iter: _docIters) {
+      if (!iter || iter->finished()) {
+        continue;
+      }
+      iter->startIteration();
+      if (!_currentIter) {
+        _currentIter = iter;
+        continue;
+      }
+
+      if (iter->currentEntry()->document < _currentIter->currentEntry()->document) {
+        _currentIter = iter;
+      }
+    }
+  }
+
+  indri::index::DocListIterator::DocumentData* currentEntry(){
+    return _currentIter->currentEntry();
+  }
+
+  bool nextEntry() {
+    lemur::api::DOCID_T lastId = 0;
+    if (_currentIter) {
+      lastId = _currentIter->currentEntry()->document;
+      _currentIter->nextEntry();
+    }
+    _currentIter = NULL;
+    for (auto *iter: _docIters) {
+      if (!iter || iter->finished()) {
+        continue;
+      }
+      if (!_currentIter) {
+        _currentIter = iter;
+      } else {
+        if (iter->currentEntry()->document < _currentIter->currentEntry()->document) {
+          _currentIter = iter;
+        }
+      }
+    }
+
+    return _currentIter != NULL;
+  }
+
+  bool finished() {
+    for (auto *iter: _docIters) {
+      if (iter && !iter->finished()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+};
+
 class QueryBM25F {
  private:
   indri::collection::Repository _repo;
@@ -131,18 +202,12 @@ class QueryBM25F {
       stems.push_back(_repo.processTerm(t));
     }
 
-    std::vector<indri::index::DocListIterator *> docIters;
-    for (auto& t: stems) {
-      auto *iter = _index->docListIterator(t);
-      if (iter) {
-        iter->startIteration();
-        docIters.push_back(iter);
-      }
-    }
-
     std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
     double threshold = 0;
-    for (auto dd = next(docIters); dd; dd = next(docIters)) {
+    DocIterator docIters(_index, stems);
+    docIters.startIteration();
+    auto dd = docIters.currentEntry();
+    while (dd) {
       const indri::index::TermList* tl = _index->termList(dd->document);
       const indri::api::DocumentVector* dv = new indri::api::DocumentVector(_index, tl);
 
@@ -180,6 +245,9 @@ class QueryBM25F {
         }
         threshold = queue.top().score;
       }
+
+      docIters.nextEntry();
+      dd = docIters.currentEntry();
     }
 
     std::vector<DocScore> s;
