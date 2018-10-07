@@ -204,55 +204,53 @@ class QueryBM25F {
 
   void getFieldInfo(std::map<std::string, int> &docFieldLen,
                     std::map<std::string, std::map<std::string, int>> &termFieldOccur,
-                    indri::api::DocumentVector *dv,
-                    std::vector<std::string> queryStems) {
-    std::vector<indri::api::DocumentVector::Field>& docFields = dv->fields();
-    std::vector<std::string>& docStems = dv->stems();
-    std::vector<int> queryStemPos;
-    for (auto &s: queryStems) {
+                    const indri::api::DocumentVector *dv,
+                    const std::vector<std::string> &queryStems) {
+    const std::vector<indri::api::DocumentVector::Field>& docFields = dv->fields();
+    const std::vector<std::string>& docStems = dv->stems();
+    std::map<int, std::string> queryStemPos;
+    // Find the indexes of query stems in the document, so we can
+    // avoid string comparison when counting the occurrences.
+    for (const auto &s: queryStems) {
       size_t i;
       for (i = 0; i < docStems.size(); ++i) {
         if (s == docStems[i]) {
-          queryStemPos.push_back(i);
+          queryStemPos[i] = s;
+          break;
         }
       }
+    }
 
-      // Not found
-      if (i == docStems.size()) {
-        queryStemPos.push_back(-1);
+    // Initialize the output map, so we can access the map directly
+    // later.
+    for (const auto &t: queryStems) {
+      termFieldOccur[t] = std::map<std::string, int>();
+      for (const auto &f: _fields) {
+        termFieldOccur[t][f] = 0;
       }
+    }
+
+    for (const auto &f: _fields) {
+      docFieldLen[f] = 0;
     }
 
     const std::vector<int>& positions = dv->positions();
     for (size_t fieldIndex = 0; fieldIndex < docFields.size(); fieldIndex++) {
-      std::string fieldName = docFields[fieldIndex].name;
+      const std::string &fieldName = docFields[fieldIndex].name;
       // Not the field we want.
       if (_fields.find(fieldName) == _fields.end()) {
         continue;
       }
 
       // Accumulate field length
-      if (docFieldLen.find(fieldName) == docFieldLen.end()) {
-        docFieldLen[fieldName] = 0;
-      }
       docFieldLen[fieldName] += docFields[fieldIndex].end - docFields[fieldIndex].begin;
 
       // Accumulate term field occurrences
       for (size_t pos = docFields[fieldIndex].begin; pos < docFields[fieldIndex].end; ++pos) {
-        for (size_t i = 0; i < queryStemPos.size(); ++i) {
-          if (positions[pos] == queryStemPos[i]) {
-            if (termFieldOccur.find(queryStems[i]) == termFieldOccur.end()) {
-              termFieldOccur[queryStems[i]] = std::map<std::string, int>();
-            }
-            if (termFieldOccur[queryStems[i]].find(docFields[fieldIndex].name) == termFieldOccur[queryStems[i]].end()) {
-              termFieldOccur[queryStems[i]][docFields[fieldIndex].name] = 0;
-            }
-            termFieldOccur[queryStems[i]][docFields[fieldIndex].name] += 1;
-          }
-        }
+        const std::string &term = queryStemPos[positions[pos]];
+        termFieldOccur[term][fieldName] += 1;
       }
     }
-
   }
 
   indri::index::DocListIterator::DocumentData* next() {
