@@ -93,7 +93,6 @@ class QueryBM25F {
  private:
   indri::collection::Repository _repo;
   indri::index::Index *_index;
-  std::vector<indri::index::DocListIterator *> _lists;
   std::set<std::string> _fields;
   std::map<std::string, double> _fieldB;
   std::map<std::string, double> _fieldWt;
@@ -132,17 +131,18 @@ class QueryBM25F {
       stems.push_back(_repo.processTerm(t));
     }
 
+    std::vector<indri::index::DocListIterator *> docIters;
     for (auto& t: stems) {
       auto *iter = _index->docListIterator(t);
       if (iter) {
         iter->startIteration();
-        _lists.push_back(iter);
+        docIters.push_back(iter);
       }
     }
 
     std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
     double threshold = 0;
-    for (auto dd = next(); dd; dd = next()) {
+    for (auto dd = next(docIters); dd; dd = next(docIters)) {
       const indri::index::TermList* tl = _index->termList(dd->document);
       const indri::api::DocumentVector* dv = new indri::api::DocumentVector(_index, tl);
 
@@ -253,28 +253,28 @@ class QueryBM25F {
     }
   }
 
-  indri::index::DocListIterator::DocumentData* next() {
+  indri::index::DocListIterator::DocumentData* next(std::vector<indri::index::DocListIterator *> &docIters) {
     indri::index::DocListIterator::DocumentData* entry = NULL;
-    indri::index::DocListIterator *iterToMove = NULL;
-    for (auto iter: _lists) {
-      if (!iter || iter->finished()) {
+    indri::index::DocListIterator *iterToAdvance = NULL;
+    for (indri::index::DocListIterator *docIter: docIters) {
+      if (!docIter || docIter->finished()) {
         continue;
       }
 
-      indri::index::DocListIterator::DocumentData* current = iter->currentEntry();
+      indri::index::DocListIterator::DocumentData* current = docIter->currentEntry();
       if (!entry) {
         entry = current;
-        iterToMove = iter;
+        iterToAdvance = docIter;
       } else {
         if (current->document < entry->document) {
           entry = current;
-          iterToMove = iter;
+          iterToAdvance = docIter;
         }
       }
     }
 
-    if (iterToMove){
-      iterToMove->nextEntry();
+    if (iterToAdvance){
+      iterToAdvance->nextEntry();
     }
 
     return entry;
