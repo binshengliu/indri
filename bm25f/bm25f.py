@@ -51,7 +51,7 @@ def parse_args():
         help='Param file, none for reading from stdin',
     )
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     return args
 
