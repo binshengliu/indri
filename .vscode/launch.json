@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bm25f/bm25f",
-            "args": ["-index=/home/bsl/code/indri-data/cw09b-index/", "-query=obama family tree", "-k1=10", "-fieldB=title:10,heading:1", "-fieldWt=title:8,heading:1"],
+            "args": ["-index=/home/bsl/code/indri-data/cw09b-index/", "-query=obama family tree", "-k1=0.9", "-count=1000", "-fieldB=title:0.4,body:0.4", "-fieldWt=title:1,body:1"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
