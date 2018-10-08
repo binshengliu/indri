@@ -203,7 +203,7 @@ QueryBM25F::QueryBM25F(std::string index,
   _environment.addIndex(index);
 };
 
-void QueryBM25F::query(std::string qno, std::string query) {
+std::vector<std::pair<std::string, double>> QueryBM25F::query(std::string query) {
   std::vector<std::string> stems;
   std::istringstream buf(query);
   std::istream_iterator<std::string> beg(buf), end;
@@ -266,13 +266,12 @@ void QueryBM25F::query(std::string qno, std::string query) {
 
   std::vector<std::string> docnos = _environment.documentMetadata(docids, "docno");
 
-  // 1 Q0 clueweb09-en0007-63-02101 1 -3.34724 indri
-  int rank = 1;
+  std::vector<std::pair<std::string, double>> result;
   for (int i = s.size() - 1; i >= 0; --i) {
-    std::cout << qno << " Q0 " << docnos[i] << " " << rank
-              << " " << s[i].id << " " << s[i].score << " " << "bm25f" << std::endl;
-    rank += 1;
+    result.push_back(std::make_pair(docnos[i], s[i].score));
   }
+
+  return result;
 }
 
 // void QueryBM25F::getFieldInfo(std::vector<int> &docFieldLen,

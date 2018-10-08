@@ -74,11 +74,6 @@ class QueryBM25F {
              double k1,
              int requested);
 
-  void query(std::string qno, std::string query);
-
-  void getFieldInfo(std::vector<int> &docFieldLen,
-                    std::vector<std::vector<int>> &termFieldOccur,
-                    DocIterator::entry &de,
-                    const std::vector<std::string> &queryStems);
+  std::vector<std::pair<std::string, double>> query(std::string query);
 };
 

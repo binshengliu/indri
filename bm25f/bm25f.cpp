@@ -89,7 +89,18 @@ int main( int argc, char** argv ) {
 
 
     QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1, requested);
-    bm25f.query(qno, query);
+    std::vector<std::pair<std::string, double>> result = bm25f.query(query);
+
+    // 1 Q0 clueweb09-en0007-63-02101 1 -3.34724 indri
+    int rank = 1;
+    for (size_t i = 0; i < result.size(); ++i) {
+      std::string docno = result[i].first;
+      double score = result[i].second;
+      std::cout << qno << " Q0 " << docno << " " << i + 1
+                << " " << score << " " << "bm25f" << std::endl;
+      rank += 1;
+    }
+
   }
   catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
