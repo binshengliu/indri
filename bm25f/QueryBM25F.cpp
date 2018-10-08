@@ -55,11 +55,27 @@ DocIterator::DocIterator(indri::index::Index *index,
 }
 
 bool DocIterator::isAtValidEntry() {
-  std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
-  for (auto &outer: termFieldOccurrences) {
-    for (int occ: outer) {
-      if (occ > 0) {
-        return true;
+  if (_termItersQueue.empty()) {
+    return false;
+  }
+
+  lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
+  for (auto tIter: _termIters) {
+    if (!tIter || tIter->finished() || tIter->currentEntry()->document != document) {
+      continue;
+    }
+
+    for (auto fIter: _fieldIters) {
+      if (!fIter || fIter->finished() || fIter->currentEntry()->document != document) {
+        continue;
+      }
+
+      for (auto &e: fIter->currentEntry()->extents) {
+        for (auto pos: tIter->currentEntry()->positions) {
+          if (pos >= e.begin && pos < e.end) {
+            return true;
+          }
+        }
       }
     }
   }
