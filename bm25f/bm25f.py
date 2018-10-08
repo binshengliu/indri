@@ -14,8 +14,8 @@ def bm25f(args):
     return proc.stdout.decode('utf-8')
 
 
-def bm25f_mp(bin_args, queries):
-    processes = len(os.sched_getaffinity(0))
+def bm25f_mp(bin_args, queries, threads):
+    processes = len(os.sched_getaffinity(0)) if threads is None else threads
     bin_args_list = [
         bin_args + ['-qno={}'.format(qno), '-query={}'.format(text)]
         for qno, text in queries
@@ -37,6 +37,8 @@ def fullpath(p):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run queries distributedly')
+
+    parser.add_argument('--threads', type=int)
 
     parser.add_argument(
         'param',
@@ -74,7 +76,7 @@ def main():
             else:
                 bin_args.append('-{}={}'.format(child.tag, child.text))
 
-    bm25f_mp(bin_args, queries)
+    bm25f_mp(bin_args, queries, args.threads)
 
 
 if __name__ == '__main__':
