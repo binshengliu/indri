@@ -66,7 +66,7 @@ int main( int argc, char** argv ) {
     std::string index = param["index"];
     std::string query = param["query"];
     std::string qno = param.get("qno", "1");
-    int count = param.get("count", 1000);
+    int requested = param.get("count", 1000);
 
     int k1 = param.get("k1");
     std::map<std::string, double> fieldB = parse_field_spec(param["fieldB"]);
@@ -78,8 +78,8 @@ int main( int argc, char** argv ) {
       fields.push_back(f.first);
     }
 
-    QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1);
-    bm25f.query(qno, query, count);
+    QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1, requested);
+    bm25f.query(qno, query);
   }
   catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);

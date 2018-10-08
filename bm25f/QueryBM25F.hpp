@@ -60,10 +60,11 @@ class QueryBM25F {
   std::map<std::string, double> _avgFieldLen;
   double _k1;
   indri::api::QueryEnvironment _environment;
+  int _requested;
  public:
-  QueryBM25F(std::string index, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1);
+  QueryBM25F(std::string index, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1, int requested);
 
-  void query(std::string qno, std::string query, int count);
+  void query(std::string qno, std::string query);
 
   void getFieldInfo(std::map<std::string, int> &docFieldLen,
                     std::map<std::string, std::map<std::string, int>> &termFieldOccur,

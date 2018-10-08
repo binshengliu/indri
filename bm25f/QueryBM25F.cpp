@@ -107,7 +107,9 @@ bool DocIterator::finished() {
   return _termIters.empty();
 }
 
-QueryBM25F::QueryBM25F(std::string index, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1) {
+QueryBM25F::QueryBM25F(std::string index, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1, int requested) {
+  _requested = requested;
+
   _repo.openRead(index);
 
   indri::collection::Repository::index_state state = _repo.indexes();
@@ -129,7 +131,7 @@ QueryBM25F::QueryBM25F(std::string index, std::vector<std::string> fields, std::
   _environment.addIndex(index);
 };
 
-void QueryBM25F::query(std::string qno, std::string query, int count) {
+void QueryBM25F::query(std::string qno, std::string query) {
   std::vector<std::string> stems;
   std::istringstream buf(query);
   std::istream_iterator<std::string> beg(buf), end;
@@ -168,9 +170,9 @@ void QueryBM25F::query(std::string qno, std::string query, int count) {
       score += tf * idf;
     }
 
-    if (queue.size() < count || score > threshold) {
+    if (queue.size() < _requested || score > threshold) {
       queue.push(DocScore(de.document, score));
-      while (queue.size() > count) {
+      while (queue.size() > _requested) {
         queue.pop();
       }
       threshold = queue.top().score;
