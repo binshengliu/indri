@@ -218,6 +218,9 @@ void QueryBM25F::query(std::string qno, std::string query) {
       const std::vector<int> &fieldStats = de.termFieldOccurrences[termIndex];
       for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
         int occurrences = fieldStats[fieldIndex];
+        if (occurrences == 0 || de.fieldLength[fieldIndex] == 0) {
+          continue;
+        }
 
         double fieldFreq = occurrences / (1 + _fieldB[fieldIndex] * (de.fieldLength[fieldIndex] / _avgFieldLen[fieldIndex] - 1));
         pseudoFreq += _fieldWt[fieldIndex] * fieldFreq;
