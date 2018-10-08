@@ -43,14 +43,15 @@ class DocIterator {
               const std::vector<std::string> &fields,
               const std::vector<std::string> &stems);
   DocIterator::entry currentEntry();
-  bool nextEntry();
+  void nextEntry();
   void nextFieldEntry();
-  bool nextDocEntry();
+  void nextDocEntry();
   bool finished();
  private:
   std::vector<std::vector<int>> countTermFieldOccurences();
   std::vector<int> countFieldLength();
   void forwardFieldIter();
+  bool isAtValidEntry();
 };
 
 class QueryBM25F {

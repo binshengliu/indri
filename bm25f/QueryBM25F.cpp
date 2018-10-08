@@ -50,6 +50,19 @@ DocIterator::DocIterator(indri::index::Index *index,
   forwardFieldIter();
 }
 
+bool DocIterator::isAtValidEntry() {
+  std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
+  for (auto &outer: termFieldOccurrences) {
+    for (int occ: outer) {
+      if (occ > 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 DocIterator::entry DocIterator::currentEntry() {
   lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
   std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
@@ -62,22 +75,13 @@ DocIterator::entry DocIterator::currentEntry() {
   return e;
 }
 
-bool DocIterator::nextEntry() {
-  bool found = false;
-
-  while (!found && nextDocEntry()) {
-    std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
-    for (auto &outer: termFieldOccurrences) {
-      for (int occ: outer) {
-        if (occ > 0) {
-          found= true;
-          return true;
-        }
-      }
-    }
+void DocIterator::nextEntry() {
+  nextDocEntry();
+  while (!isAtValidEntry() && !finished()) {
+    nextDocEntry();
   }
 
-  return found;
+  return;
 }
 
 std::vector<std::vector<int>> DocIterator::countTermFieldOccurences() {
@@ -90,7 +94,6 @@ std::vector<std::vector<int>> DocIterator::countTermFieldOccurences() {
     if (!tIter || tIter->finished() || tIter->currentEntry()->document != document) {
       continue;
     }
-    auto *entry = tIter->currentEntry();
 
     for (size_t fieldIndex = 0; fieldIndex < _fieldIters.size(); ++fieldIndex) {
       auto fIter = _fieldIters[fieldIndex];
@@ -137,9 +140,9 @@ void DocIterator::forwardFieldIter() {
   }
 }
 
-bool DocIterator::nextDocEntry() {
+void DocIterator::nextDocEntry() {
   if (_termItersQueue.empty()) {
-    return false;
+    return;
   }
 
   indri::index::DocListIterator *iter = _termItersQueue.top();
@@ -153,11 +156,11 @@ bool DocIterator::nextDocEntry() {
   }
 
   if (_termItersQueue.empty()) {
-    return false;
+    return;
   }
 
   forwardFieldIter();
-  return true;
+  return;
 }
 
 bool DocIterator::finished() {
