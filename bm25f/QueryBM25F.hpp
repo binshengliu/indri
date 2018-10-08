@@ -30,8 +30,8 @@ class DocIterator {
  public:
   struct entry {
     lemur::api::DOCID_T document;
-    std::vector<std::vector<int>> *termFieldOccurrences;
-    std::vector<int> *fieldLength;
+    const std::vector<std::vector<int>> *termFieldOccurrences;
+    const std::vector<int> *fieldLength;
   };
  private:
   std::vector<indri::index::DocListIterator *> _termIters;
