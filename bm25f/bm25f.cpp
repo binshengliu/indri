@@ -69,7 +69,7 @@ int main( int argc, char** argv ) {
     std::string qno = param.get("qno", "1");
     int requested = param.get("count", 1000);
 
-    int k1 = param.get("k1");
+    double k1 = param.get("k1");
     std::vector<std::string> fields;
     std::vector<std::string> fields2;
     std::vector<double> fieldB;
