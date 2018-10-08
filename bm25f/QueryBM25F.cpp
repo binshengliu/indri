@@ -78,9 +78,10 @@ DocIterator::entry DocIterator::currentEntry() {
 bool DocIterator::nextEntry() {
   if (nextDocEntry()) {
     nextFieldEntry();
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 void DocIterator::nextFieldEntry() {
