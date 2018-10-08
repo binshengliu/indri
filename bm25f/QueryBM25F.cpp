@@ -48,6 +48,10 @@ DocIterator::DocIterator(indri::index::Index *index,
   }
 
   forwardFieldIter();
+
+  if (!isAtValidEntry()) {
+    nextEntry();
+  }
 }
 
 bool DocIterator::isAtValidEntry() {
