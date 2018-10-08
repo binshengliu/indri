@@ -5,9 +5,10 @@ INCPATH=-I../include $(patsubst %, -I../contrib/%/include, $(DEPENDENCIES))
 LIBPATH=-L../obj  $(patsubst %, -L../contrib/%/obj, $(DEPENDENCIES))
 LIBS=-lindri $(patsubst %, -l%, $(DEPENDENCIES))
 APP=bm25f
+SRC = $(notdir $(wildcard *.cpp))
 
-all:
-	$(CXX) $(CXXFLAGS) $(APP).cpp -o $(APP) $(LIBPATH) $(LIBS) $(CPPLDFLAGS)
+all: $(SRC)
+	$(CXX) $(CXXFLAGS) $(SRC) -o $(APP) $(LIBPATH) $(LIBS) $(CPPLDFLAGS)
 
 install:
 	$(INSTALL_PROGRAM) $(APP) $(bindir)
