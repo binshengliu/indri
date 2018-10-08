@@ -20,45 +20,55 @@ bool DocIterator::field_greater::operator () (indri::index::DocExtentListIterato
       return lhs->currentEntry()->document > rhs->currentEntry()->document;
 }
 
+DocIterator::entry::entry(lemur::api::DOCID_T document,
+                          size_t termCount,
+                          size_t fieldCount):
+    document(document),
+    docEntries(termCount, NULL),
+    fieldEntries(fieldCount, NULL) {}
+
 DocIterator::DocIterator(indri::index::Index *index,
-                         const std::set<std::string> &fields,
+                         const std::vector<std::string> &fields,
                          const std::vector<std::string> &stems):
-    _currentIter(NULL) {
-  for (auto& t: stems) {
-    auto *iter = index->docListIterator(t);
+    _currentIter(NULL),
+    _termItersMap(stems.size(), NULL),
+    _fieldIters(fields.size(), NULL) {
+  for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
+    auto *iter = index->docListIterator(stems[termIndex]);
     if (iter) {
       iter->startIteration();
       if (!iter->finished()) {
         _termIters.push(iter);
-        _termItersMap[t] = iter;
+        _termItersMap[termIndex] = iter;
       }
     }
   }
 
-  for (auto& f: fields) {
-    auto *iter = index->fieldListIterator(f);
+  for (size_t fieldIndex = 0; fieldIndex < fields.size(); ++fieldIndex) {
+    auto *iter = index->fieldListIterator(fields[fieldIndex]);
     if (iter) {
       iter->startIteration();
-      _fieldIters[f] = iter;
+      if (!iter->finished()) {
+        _fieldIters[fieldIndex] = iter;
+      }
     }
   }
 }
 
 DocIterator::entry DocIterator::currentEntry() {
-  DocIterator::entry e;
-  e.document = _termIters.top()->currentEntry()->document;
-  for (auto &termPair: _termItersMap) {
-    const std::string &term = termPair.first;
-    auto *iter = termPair.second;
+  lemur::api::DOCID_T document = _termIters.top()->currentEntry()->document;
+  DocIterator::entry e(document, _termItersMap.size(), _fieldIters.size());
+  for (size_t termIndex = 0; termIndex < _termItersMap.size(); ++termIndex) {
+    auto iter = _termItersMap[termIndex];
     if (!iter->finished() && iter->currentEntry()->document == e.document) {
-      e.docEntries[term] = iter->currentEntry();
+      e.docEntries[termIndex] = iter->currentEntry();
     }
   }
-  for (auto &f: _fieldIters) {
-    std::string fieldName = f.first;
-    auto *iter = f.second;
+
+  for (size_t fieldIndex = 0; fieldIndex < _fieldIters.size(); ++fieldIndex) {
+    auto iter = _fieldIters[fieldIndex];
     if (!iter->finished() && iter->currentEntry()->document == e.document) {
-      e.fieldEntries[fieldName] = iter->currentEntry();
+      e.fieldEntries[fieldIndex] = iter->currentEntry();
     }
   }
 
@@ -76,10 +86,8 @@ bool DocIterator::nextEntry() {
 void DocIterator::nextFieldEntry() {
   auto docEntry = _termIters.top()->currentEntry();
 
-  for (auto &f: _fieldIters) {
-    std::string fieldName = f.first;
-    indri::index::DocExtentListIterator *fIter = f.second;
-    fIter->nextEntry(docEntry->document);
+  for (auto &iter: _fieldIters) {
+    iter->nextEntry(docEntry->document);
   }
 
   return;
@@ -107,27 +115,31 @@ bool DocIterator::finished() {
   return _termIters.empty();
 }
 
-QueryBM25F::QueryBM25F(std::string index, std::vector<std::string> fields, std::map<std::string, double> fieldB, std::map<std::string, double> fieldWt, double k1, int requested) {
-  _requested = requested;
-
+QueryBM25F::QueryBM25F(std::string index,
+                       std::vector<std::string> fields,
+                       std::vector<double> fieldB,
+                       std::vector<double> fieldWt,
+                       double k1,
+                       int requested):
+    _fields(fields),
+    _fieldB(fieldB),
+    _fieldWt(fieldWt),
+    _k1(k1),
+    _requested(requested),
+    _avgFieldLen(fields.size(), 0)
+{
   _repo.openRead(index);
 
   indri::collection::Repository::index_state state = _repo.indexes();
   _index = (*state)[0];
-
-  _fields = std::set<std::string>(fields.begin(), fields.end());
-  _fieldB = fieldB;
-  _fieldWt = fieldWt;
-
   _totalDocumentCount = _index->documentCount();
 
   // Average field length;
-  for (auto f: fields) {
-    double len = _index->fieldTermCount(f) / _totalDocumentCount;
-    _avgFieldLen[f] = len;
+  for (size_t fieldIndex = 0; fieldIndex < fields.size(); ++fieldIndex) {
+    double len = _index->fieldTermCount(fields[fieldIndex]) / _totalDocumentCount;
+    _avgFieldLen[fieldIndex] = len;
   }
 
-  _k1 = k1;
   _environment.addIndex(index);
 };
 
@@ -139,38 +151,37 @@ void QueryBM25F::query(std::string qno, std::string query) {
     stems.push_back(_repo.processTerm(t));
   }
 
-  std::map<std::string, double> termDocCountMap;
-  for (auto t: stems) {
-    double count = _index->documentCount(t);
-    termDocCountMap[t] = count;
+  std::vector<double> termDocCounts(stems.size(), 0);
+  for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
+    double count = _index->documentCount(stems[termIndex]);
+    termDocCounts[termIndex] = count;
   }
-
 
   std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
   double threshold = 0;
   DocIterator docIters(_index, _fields, stems);
   while (!docIters.finished()) {
     auto de = docIters.currentEntry();
-    std::map<std::string, std::map<std::string, int>> termFieldOccur;
-    std::map<std::string, int> docFieldLen;
+    std::vector<std::vector<int>> termFieldOccur(stems.size(),
+                                                 std::vector<int>(_fields.size(), 0));
+    std::vector<int> docFieldLen(_fields.size(), 0);
+
     getFieldInfo(docFieldLen, termFieldOccur, de, stems);
 
     double pseudoFreq = 0;
     double score = 0;
-    for (const auto &termPair: termFieldOccur) {
-      const std::string &term = termPair.first;
-      const std::map<std::string, int> &fieldStats = termPair.second;
-      for (const auto &fieldPair: fieldStats) {
-        const std::string &fieldName = fieldPair.first;
-        int occurrences = fieldPair.second;
+    for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
+      const std::vector<int> &fieldStats = termFieldOccur[termIndex];
+      for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
+        int occurrences = fieldStats[fieldIndex];
 
-        double fieldFreq = occurrences / (1 + _fieldB[fieldName] * (docFieldLen[fieldName] / _avgFieldLen[fieldName] - 1));
-        pseudoFreq += _fieldWt[fieldName] * fieldFreq;
+        double fieldFreq = occurrences / (1 + _fieldB[fieldIndex] * (docFieldLen[fieldIndex] / _avgFieldLen[fieldIndex] - 1));
+        pseudoFreq += _fieldWt[fieldIndex] * fieldFreq;
 
       }
       double tf = pseudoFreq / (_k1 + pseudoFreq);
 
-      double termDocCount = termDocCountMap[term];
+      double termDocCount = termDocCounts[termIndex];
       double idf = (_totalDocumentCount - termDocCount + 0.5) / (termDocCount + 0.5);
 
       score += tf * idf;
@@ -207,37 +218,38 @@ void QueryBM25F::query(std::string qno, std::string query) {
   }
 }
 
-void QueryBM25F::getFieldInfo(std::map<std::string, int> &docFieldLen,
-                              std::map<std::string, std::map<std::string, int>> &termFieldOccur,
+void QueryBM25F::getFieldInfo(std::vector<int> &docFieldLen,
+                              std::vector<std::vector<int>> &termFieldOccur,
                               DocIterator::entry &de,
                               const std::vector<std::string> &queryStems) {
   // Initialize the output map, so we can access the map directly
   // later.
 
-  for (auto &fieldPair: de.fieldEntries) {
-    const std::string &fieldName = fieldPair.first;
-    auto *fieldData = fieldPair.second;
-    docFieldLen[fieldName] = 0;
+  for (size_t fieldIndex = 0; fieldIndex < de.fieldEntries.size(); ++fieldIndex) {
+    auto *fieldData = de.fieldEntries[fieldIndex];
+    if (!fieldData) {
+      continue;
+    }
     for (auto &e: fieldData->extents) {
-      docFieldLen[fieldName] += e.end - e.begin;
+      docFieldLen[fieldIndex] += e.end - e.begin;
     }
   }
 
-  for (auto &docPair: de.docEntries) {
-    const std::string &term = docPair.first;
-    auto *docData = docPair.second;
+  for (size_t termIndex = 0; termIndex < de.docEntries.size(); ++termIndex) {
+    auto *docData = de.docEntries[termIndex];
+    if (!docData) {
+      continue;
+    }
 
-    termFieldOccur[term] = std::map<std::string, int>();
-
-    for (auto &fieldPair: de.fieldEntries) {
-      std::string fieldName = fieldPair.first;
-      termFieldOccur[term][fieldName] = 0;
-      indri::index::DocExtentListIterator::DocumentExtentData *fieldData = fieldPair.second;
+    for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
+      indri::index::DocExtentListIterator::DocumentExtentData *fieldData = de.fieldEntries[fieldIndex];
+      if (!fieldData) {
+        continue;
+      }
       for (auto &e: fieldData->extents) {
-        docFieldLen[fieldName] += e.end - e.begin;
         for (auto pos: docData->positions) {
           if (pos >= e.begin && pos < e.end) {
-            termFieldOccur[term][fieldName] += 1;
+            termFieldOccur[termIndex][fieldIndex] += 1;
           }
         }
       }

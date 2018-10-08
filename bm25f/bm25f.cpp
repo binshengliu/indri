@@ -20,9 +20,9 @@
 #include "indri/Parameters.hpp"
 #include "QueryBM25F.hpp"
 
-static std::map<std::string, double> parse_field_spec(const std::string& spec) {
-  std::map<std::string, double> m;
-
+static void parse_field_spec(std::vector<std::string> &keys,
+                             std::vector<double> &values,
+                             const std::string& spec) {
   int nextComma = 0;
   int nextColon = 0;
   int  location = 0;
@@ -34,7 +34,8 @@ static std::map<std::string, double> parse_field_spec(const std::string& spec) {
     std::string key = spec.substr( location, nextColon-location );
     double value = std::stod(spec.substr( nextColon+1, nextComma-nextColon-1 ));
 
-    m[key] = value;
+    keys.push_back(key);
+    values.push_back(value);
 
     if( nextComma > 0 )
       location = nextComma+1;
@@ -42,7 +43,7 @@ static std::map<std::string, double> parse_field_spec(const std::string& spec) {
       location = spec.size();
   }
 
-  return m;
+  return;
 }
 
 static void usage(indri::api::Parameters param) {
@@ -69,14 +70,23 @@ int main( int argc, char** argv ) {
     int requested = param.get("count", 1000);
 
     int k1 = param.get("k1");
-    std::map<std::string, double> fieldB = parse_field_spec(param["fieldB"]);
-    std::map<std::string, double> fieldWt = parse_field_spec(param["fieldWt"]);
-
-    // Use docPair vector to record all the fields
     std::vector<std::string> fields;
-    for (auto f: fieldB) {
-      fields.push_back(f.first);
+    std::vector<std::string> fields2;
+    std::vector<double> fieldB;
+    std::vector<double> fieldWt;
+    parse_field_spec(fields, fieldB, param["fieldB"]);
+    parse_field_spec(fields2, fieldWt, param["fieldWt"]);
+    if (fields.size() != fields2.size()) {
+      std::cerr << "Please specify same fields in \"fieldB\" and \"fieldWt\"" << std::endl;
+      return -1;
     }
+    for (size_t fieldIndex = 0; fieldIndex < fields.size(); ++fieldIndex) {
+      if (fields[fieldIndex] != fields2[fieldIndex]) {
+        std::cerr << "Please specify same fields in \"fieldB\" and \"fieldWt\"" << std::endl;
+        return -1;
+      }
+    }
+
 
     QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1, requested);
     bm25f.query(qno, query);
