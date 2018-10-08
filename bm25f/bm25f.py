@@ -38,10 +38,11 @@ def fullpath(p):
 def parse_args():
     parser = argparse.ArgumentParser(description='Run queries distributedly')
 
-    parser.add_argument('--scheduler', help='Cluster scheduler address')
-
     parser.add_argument(
-        '--bin', default=fullpath('./bm25f'), type=fullpath, help='Indri path')
+        '--bin',
+        default=Path(__file__).with_name('bm25f'),
+        type=fullpath,
+        help='Indri path')
 
     parser.add_argument(
         'param',
