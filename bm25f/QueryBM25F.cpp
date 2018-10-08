@@ -92,6 +92,10 @@ std::vector<std::vector<int>> DocIterator::countTermFieldOccurences() {
   size_t terms = _termIters.size();
   size_t fields = _fieldIters.size();
   std::vector<std::vector<int>> termFieldOccur(terms, std::vector<int>(fields, 0));
+  if (_termItersQueue.empty()) {
+    return termFieldOccur;
+  }
+
   lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
   for (size_t termIndex = 0; termIndex < _termIters.size(); ++termIndex) {
     auto *tIter = _termIters[termIndex];
