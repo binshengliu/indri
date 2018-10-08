@@ -42,7 +42,7 @@ def parse_args():
 
     parser.add_argument(
         'param',
-        nargs='*',
+        nargs='+',
         type=Path,
         help='Param file, none for reading from stdin',
     )
