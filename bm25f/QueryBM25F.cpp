@@ -5,6 +5,7 @@
 #include "indri/DocExtentListIterator.hpp"
 #include "QueryBM25F.hpp"
 #include <queue>
+#include <cmath>
 
 bool DocScore::greater::operator () (const DocScore &lhs, const DocScore &rhs) const {
       return lhs.score > rhs.score;
@@ -235,9 +236,11 @@ std::vector<std::pair<std::string, double>> QueryBM25F::query(std::string query)
   }
 
   std::vector<double> termDocCounts(stems.size(), 0);
+  std::vector<double> termIdf(stems.size(), 0);
   for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
     double count = _index->documentCount(stems[termIndex]);
     termDocCounts[termIndex] = count;
+    termIdf[termIndex] = log((_totalDocumentCount - count + 0.5) / (count + 0.5));
   }
 
   std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
@@ -261,8 +264,7 @@ std::vector<std::pair<std::string, double>> QueryBM25F::query(std::string query)
       }
       double tf = pseudoFreq / (_k1 + pseudoFreq);
 
-      double termDocCount = termDocCounts[termIndex];
-      double idf = (_totalDocumentCount - termDocCount + 0.5) / (termDocCount + 0.5);
+      double idf = termIdf[termIndex];
 
       score += tf * idf;
     }
