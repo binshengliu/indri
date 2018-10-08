@@ -39,12 +39,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run queries distributedly')
 
     parser.add_argument(
-        '--bin',
-        default=Path(__file__).with_name('bm25f'),
-        type=fullpath,
-        help='Indri path')
-
-    parser.add_argument(
         'param',
         nargs='*',
         type=Path,
@@ -59,8 +53,9 @@ def parse_args():
 def main():
     args = parse_args()
 
+    binpath = Path(__file__).with_name('bm25f')
     wanted = ['index', 'k1', 'count', 'fieldB', 'fieldWt', 'query', 'stemmer']
-    bin_args = [str(args.bin)]
+    bin_args = [binpath]
     queries = []
     for p in args.param:
         root = ET.parse(str(p)).getroot()
