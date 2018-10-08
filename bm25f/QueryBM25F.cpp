@@ -223,9 +223,9 @@ void QueryBM25F::query(std::string qno, std::string query) {
   while (!docIters.finished()) {
     auto de = docIters.currentEntry();
 
-    double pseudoFreq = 0;
     double score = 0;
     for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
+      double pseudoFreq = 0;
       const std::vector<int> &fieldStats = de.termFieldOccurrences[termIndex];
       for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
         int occurrences = fieldStats[fieldIndex];
