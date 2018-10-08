@@ -30,14 +30,17 @@ class DocIterator {
  public:
   struct entry {
     lemur::api::DOCID_T document;
-    std::vector<std::vector<int>> termFieldOccurrences;
-    std::vector<int> fieldLength;
+    std::vector<std::vector<int>> *termFieldOccurrences;
+    std::vector<int> *fieldLength;
   };
  private:
   std::vector<indri::index::DocListIterator *> _termIters;
   std::vector<indri::index::DocExtentListIterator *> _fieldIters;
   std::priority_queue<indri::index::DocListIterator *, vector<indri::index::DocListIterator *>, DocIterator::greater> _termItersQueue;
   indri::index::DocListIterator *_currentIter;
+  // Allocate memory in advance, avoid vector allocation.
+  std::vector<std::vector<int>> _termFieldOccur;
+  std::vector<int> _fieldLength;
  public:
   DocIterator(indri::index::Index *index,
               const std::vector<std::string> &fields,
@@ -48,10 +51,10 @@ class DocIterator {
   void nextDocEntry();
   bool finished();
  private:
-  std::vector<std::vector<int>> countTermFieldOccurences();
-  std::vector<int> countFieldLength();
+  void updateStats();
   void forwardFieldIter();
   bool isAtValidEntry();
+  void resetStats();
 };
 
 class QueryBM25F {

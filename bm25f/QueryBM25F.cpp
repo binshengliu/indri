@@ -25,7 +25,9 @@ DocIterator::DocIterator(indri::index::Index *index,
                          const std::vector<std::string> &stems):
     _currentIter(NULL),
     _termIters(stems.size(), NULL),
-    _fieldIters(fields.size(), NULL) {
+    _fieldIters(fields.size(), NULL),
+    _termFieldOccur(stems.size(), vector<int>(fields.size(), 0)),
+    _fieldLength(fields.size(), 0) {
   for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
     auto *iter = index->docListIterator(stems[termIndex]);
     if (iter) {
@@ -85,13 +87,12 @@ bool DocIterator::isAtValidEntry() {
 
 DocIterator::entry DocIterator::currentEntry() {
   lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
-  std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
-  std::vector<int> fieldLength = countFieldLength();
+  updateStats();
 
   DocIterator::entry e;
   e.document = document;
-  e.termFieldOccurrences = termFieldOccurrences;
-  e.fieldLength = fieldLength;
+  e.termFieldOccurrences = &_termFieldOccur;
+  e.fieldLength = &_fieldLength;
   return e;
 }
 
@@ -104,12 +105,22 @@ void DocIterator::nextEntry() {
   return;
 }
 
-std::vector<std::vector<int>> DocIterator::countTermFieldOccurences() {
-  size_t terms = _termIters.size();
-  size_t fields = _fieldIters.size();
-  std::vector<std::vector<int>> termFieldOccur(terms, std::vector<int>(fields, 0));
+void DocIterator::resetStats() {
+  for (auto &outer: _termFieldOccur) {
+    for (auto &inner: outer) {
+      inner = 0;
+    }
+  }
+
+  for (auto &f: _fieldLength) {
+    f = 0;
+  }
+}
+
+void DocIterator::updateStats() {
+  resetStats();
   if (_termItersQueue.empty()) {
-    return termFieldOccur;
+    return;
   }
 
   lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
@@ -128,20 +139,13 @@ std::vector<std::vector<int>> DocIterator::countTermFieldOccurences() {
       for (auto &e: fIter->currentEntry()->extents) {
         for (auto pos: tIter->currentEntry()->positions) {
           if (pos >= e.begin && pos < e.end) {
-            termFieldOccur[termIndex][fieldIndex] += 1;
+            _termFieldOccur[termIndex][fieldIndex] += 1;
           }
         }
       }
     }
   }
 
-  return termFieldOccur;
-}
-
-std::vector<int> DocIterator::countFieldLength() {
-  size_t fields = _fieldIters.size();
-  std::vector<int> fieldLength(fields, 0);
-  lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
   for (size_t fieldIndex = 0; fieldIndex < _fieldIters.size(); ++fieldIndex) {
     auto fIter = _fieldIters[fieldIndex];
     if (!fIter || fIter->finished() || fIter->currentEntry()->document != document) {
@@ -149,11 +153,11 @@ std::vector<int> DocIterator::countFieldLength() {
     }
 
     for (auto &e: fIter->currentEntry()->extents) {
-      fieldLength[fieldIndex] += e.end - e.begin;
+      _fieldLength[fieldIndex] += e.end - e.begin;
     }
   }
 
-  return fieldLength;
+  return;
 }
 
 void DocIterator::forwardFieldIter() {
@@ -242,14 +246,14 @@ std::vector<std::pair<std::string, double>> QueryBM25F::query(std::string query)
     double score = 0;
     for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
       double pseudoFreq = 0;
-      const std::vector<int> &fieldStats = de.termFieldOccurrences[termIndex];
+      const std::vector<int> &fieldStats = de.termFieldOccurrences->at(termIndex);
       for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
         int occurrences = fieldStats[fieldIndex];
-        if (occurrences == 0 || de.fieldLength[fieldIndex] == 0) {
+        if (occurrences == 0 || de.fieldLength->at(fieldIndex) == 0) {
           continue;
         }
 
-        double fieldFreq = occurrences / (1 + _fieldB[fieldIndex] * (de.fieldLength[fieldIndex] / _avgFieldLen[fieldIndex] - 1));
+        double fieldFreq = occurrences / (1 + _fieldB[fieldIndex] * (de.fieldLength->at(fieldIndex) / _avgFieldLen[fieldIndex] - 1));
         pseudoFreq += _fieldWt[fieldIndex] * fieldFreq;
       }
       double tf = pseudoFreq / (_k1 + pseudoFreq);
