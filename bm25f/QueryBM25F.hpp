@@ -30,9 +30,8 @@ class DocIterator {
  public:
   struct entry {
     lemur::api::DOCID_T document;
-    std::vector<indri::index::DocListIterator::DocumentData *> docEntries;
-    std::vector<indri::index::DocExtentListIterator::DocumentExtentData *> fieldEntries;
-    entry(lemur::api::DOCID_T document, size_t termCount, size_t fieldCount);
+    std::vector<std::vector<int>> termFieldOccurrences;
+    std::vector<int> fieldLength;
   };
  private:
   std::vector<indri::index::DocListIterator *> _termIters;
@@ -48,6 +47,10 @@ class DocIterator {
   void nextFieldEntry();
   bool nextDocEntry();
   bool finished();
+ private:
+  std::vector<std::vector<int>> countTermFieldOccurences();
+  std::vector<int> countFieldLength();
+  void forwardFieldIter();
 };
 
 class QueryBM25F {

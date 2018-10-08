@@ -20,13 +20,6 @@ bool DocIterator::field_greater::operator () (indri::index::DocExtentListIterato
       return lhs->currentEntry()->document > rhs->currentEntry()->document;
 }
 
-DocIterator::entry::entry(lemur::api::DOCID_T document,
-                          size_t termCount,
-                          size_t fieldCount):
-    document(document),
-    docEntries(termCount, NULL),
-    fieldEntries(fieldCount, NULL) {}
-
 DocIterator::DocIterator(indri::index::Index *index,
                          const std::vector<std::string> &fields,
                          const std::vector<std::string> &stems):
@@ -53,45 +46,95 @@ DocIterator::DocIterator(indri::index::Index *index,
       }
     }
   }
+
+  forwardFieldIter();
 }
 
 DocIterator::entry DocIterator::currentEntry() {
   lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
-  DocIterator::entry e(document, _termIters.size(), _fieldIters.size());
-  for (size_t termIndex = 0; termIndex < _termIters.size(); ++termIndex) {
-    auto iter = _termIters[termIndex];
-    if (!iter->finished() && iter->currentEntry()->document == e.document) {
-      e.docEntries[termIndex] = iter->currentEntry();
-    }
-  }
+  std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
+  std::vector<int> fieldLength = countFieldLength();
 
-  for (size_t fieldIndex = 0; fieldIndex < _fieldIters.size(); ++fieldIndex) {
-    auto iter = _fieldIters[fieldIndex];
-    if (!iter->finished() && iter->currentEntry()->document == e.document) {
-      e.fieldEntries[fieldIndex] = iter->currentEntry();
-    }
-  }
-
+  DocIterator::entry e;
+  e.document = document;
+  e.termFieldOccurrences = termFieldOccurrences;
+  e.fieldLength = fieldLength;
   return e;
 }
 
 bool DocIterator::nextEntry() {
-  if (nextDocEntry()) {
-    nextFieldEntry();
-    return true;
+  bool found = false;
+
+  while (!found && nextDocEntry()) {
+    std::vector<std::vector<int>> termFieldOccurrences = countTermFieldOccurences();
+    for (auto &outer: termFieldOccurrences) {
+      for (int occ: outer) {
+        if (occ > 0) {
+          found= true;
+          return true;
+        }
+      }
+    }
   }
 
-  return false;
+  return found;
 }
 
-void DocIterator::nextFieldEntry() {
-  auto docEntry = _termItersQueue.top()->currentEntry();
+std::vector<std::vector<int>> DocIterator::countTermFieldOccurences() {
+  size_t terms = _termIters.size();
+  size_t fields = _fieldIters.size();
+  std::vector<std::vector<int>> termFieldOccur(terms, std::vector<int>(fields, 0));
+  lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
+  for (size_t termIndex = 0; termIndex < _termIters.size(); ++termIndex) {
+    auto *tIter = _termIters[termIndex];
+    if (!tIter || tIter->finished() || tIter->currentEntry()->document != document) {
+      continue;
+    }
+    auto *entry = tIter->currentEntry();
 
-  for (auto &iter: _fieldIters) {
-    iter->nextEntry(docEntry->document);
+    for (size_t fieldIndex = 0; fieldIndex < _fieldIters.size(); ++fieldIndex) {
+      auto fIter = _fieldIters[fieldIndex];
+      if (!fIter || fIter->finished() || fIter->currentEntry()->document != document) {
+        continue;
+      }
+
+      for (auto &e: fIter->currentEntry()->extents) {
+        for (auto pos: tIter->currentEntry()->positions) {
+          if (pos >= e.begin && pos < e.end) {
+            termFieldOccur[termIndex][fieldIndex] += 1;
+          }
+        }
+      }
+    }
   }
 
-  return;
+  return termFieldOccur;
+}
+
+std::vector<int> DocIterator::countFieldLength() {
+  size_t fields = _fieldIters.size();
+  std::vector<int> fieldLength(fields, 0);
+  lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
+  for (size_t fieldIndex = 0; fieldIndex < _fieldIters.size(); ++fieldIndex) {
+    auto fIter = _fieldIters[fieldIndex];
+    if (!fIter || fIter->finished() || fIter->currentEntry()->document != document) {
+      continue;
+    }
+
+    for (auto &e: fIter->currentEntry()->extents) {
+      fieldLength[fieldIndex] += e.end - e.begin;
+    }
+  }
+
+  return fieldLength;
+}
+
+void DocIterator::forwardFieldIter() {
+  for (auto &iter: _fieldIters) {
+    if (iter) {
+      iter->nextEntry(_termItersQueue.top()->currentEntry()->document);
+    }
+  }
 }
 
 bool DocIterator::nextDocEntry() {
@@ -109,7 +152,12 @@ bool DocIterator::nextDocEntry() {
     }
   }
 
-  return !_termItersQueue.empty();
+  if (_termItersQueue.empty()) {
+    return false;
+  }
+
+  forwardFieldIter();
+  return true;
 }
 
 bool DocIterator::finished() {
@@ -163,22 +211,16 @@ void QueryBM25F::query(std::string qno, std::string query) {
   DocIterator docIters(_index, _fields, stems);
   while (!docIters.finished()) {
     auto de = docIters.currentEntry();
-    std::vector<std::vector<int>> termFieldOccur(stems.size(),
-                                                 std::vector<int>(_fields.size(), 0));
-    std::vector<int> docFieldLen(_fields.size(), 0);
-
-    getFieldInfo(docFieldLen, termFieldOccur, de, stems);
 
     double pseudoFreq = 0;
     double score = 0;
     for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
-      const std::vector<int> &fieldStats = termFieldOccur[termIndex];
+      const std::vector<int> &fieldStats = de.termFieldOccurrences[termIndex];
       for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
         int occurrences = fieldStats[fieldIndex];
 
-        double fieldFreq = occurrences / (1 + _fieldB[fieldIndex] * (docFieldLen[fieldIndex] / _avgFieldLen[fieldIndex] - 1));
+        double fieldFreq = occurrences / (1 + _fieldB[fieldIndex] * (de.fieldLength[fieldIndex] / _avgFieldLen[fieldIndex] - 1));
         pseudoFreq += _fieldWt[fieldIndex] * fieldFreq;
-
       }
       double tf = pseudoFreq / (_k1 + pseudoFreq);
 
@@ -214,46 +256,46 @@ void QueryBM25F::query(std::string qno, std::string query) {
   int rank = 1;
   for (int i = s.size() - 1; i >= 0; --i) {
     std::cout << qno << " Q0 " << docnos[i] << " " << rank
-              << " " << s[i].score << " " << "bm25f" << std::endl;
+              << " " << s[i].id << " " << s[i].score << " " << "bm25f" << std::endl;
     rank += 1;
   }
 }
 
-void QueryBM25F::getFieldInfo(std::vector<int> &docFieldLen,
-                              std::vector<std::vector<int>> &termFieldOccur,
-                              DocIterator::entry &de,
-                              const std::vector<std::string> &queryStems) {
-  // Initialize the output map, so we can access the map directly
-  // later.
+// void QueryBM25F::getFieldInfo(std::vector<int> &docFieldLen,
+//                               std::vector<std::vector<int>> &termFieldOccur,
+//                               DocIterator::entry &de,
+//                               const std::vector<std::string> &queryStems) {
+//   // Initialize the output map, so we can access the map directly
+//   // later.
 
-  for (size_t fieldIndex = 0; fieldIndex < de.fieldEntries.size(); ++fieldIndex) {
-    auto *fieldData = de.fieldEntries[fieldIndex];
-    if (!fieldData) {
-      continue;
-    }
-    for (auto &e: fieldData->extents) {
-      docFieldLen[fieldIndex] += e.end - e.begin;
-    }
-  }
+//   for (size_t fieldIndex = 0; fieldIndex < de.fieldEntries.size(); ++fieldIndex) {
+//     auto *fieldData = de.fieldEntries[fieldIndex];
+//     if (!fieldData) {
+//       continue;
+//     }
+//     for (auto &e: fieldData->extents) {
+//       docFieldLen[fieldIndex] += e.end - e.begin;
+//     }
+//   }
 
-  for (size_t termIndex = 0; termIndex < de.docEntries.size(); ++termIndex) {
-    auto *docData = de.docEntries[termIndex];
-    if (!docData) {
-      continue;
-    }
+//   for (size_t termIndex = 0; termIndex < de.docEntries.size(); ++termIndex) {
+//     auto *docData = de.docEntries[termIndex];
+//     if (!docData) {
+//       continue;
+//     }
 
-    for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
-      indri::index::DocExtentListIterator::DocumentExtentData *fieldData = de.fieldEntries[fieldIndex];
-      if (!fieldData) {
-        continue;
-      }
-      for (auto &e: fieldData->extents) {
-        for (auto pos: docData->positions) {
-          if (pos >= e.begin && pos < e.end) {
-            termFieldOccur[termIndex][fieldIndex] += 1;
-          }
-        }
-      }
-    }
-  }
-}
+//     for (size_t fieldIndex = 0; fieldIndex < _fields.size(); ++fieldIndex) {
+//       indri::index::DocExtentListIterator::DocumentExtentData *fieldData = de.fieldEntries[fieldIndex];
+//       if (!fieldData) {
+//         continue;
+//       }
+//       for (auto &e: fieldData->extents) {
+//         for (auto pos: docData->positions) {
+//           if (pos >= e.begin && pos < e.end) {
+//             termFieldOccur[termIndex][fieldIndex] += 1;
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
