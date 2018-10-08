@@ -196,6 +196,7 @@ bool DocIterator::finished() {
 }
 
 QueryBM25F::QueryBM25F(std::string index,
+                       std::string stemmer,
                        std::vector<std::string> fields,
                        std::vector<double> fieldB,
                        std::vector<double> fieldWt,
@@ -208,7 +209,9 @@ QueryBM25F::QueryBM25F(std::string index,
     _requested(requested),
     _avgFieldLen(fields.size(), 0)
 {
-  _repo.openRead(index);
+  indri::api::Parameters p;
+  p.set("stemmer.name", stemmer);
+  _repo.openRead(index, &p);
 
   indri::collection::Repository::index_state state = _repo.indexes();
   _index = (*state)[0];

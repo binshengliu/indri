@@ -71,6 +71,7 @@ class QueryBM25F {
   int _requested;
  public:
   QueryBM25F(std::string index,
+             std::string stemmer,
              std::vector<std::string> fields,
              std::vector<double> fieldB,
              std::vector<double> fieldWt,

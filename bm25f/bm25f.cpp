@@ -65,6 +65,7 @@ int main( int argc, char** argv ) {
     usage( param );
 
     std::string index = param["index"];
+    std::string stemmer = param.get("stemmer", "krovetz");
     std::string query = param["query"];
     std::string qno = param.get("qno", "1");
     int requested = param.get("count", 1000);
@@ -88,7 +89,7 @@ int main( int argc, char** argv ) {
     }
 
 
-    QueryBM25F bm25f(index, fields, fieldB, fieldWt, k1, requested);
+    QueryBM25F bm25f(index, stemmer, fields, fieldB, fieldWt, k1, requested);
     std::vector<std::pair<std::string, double>> result = bm25f.query(query);
 
     // 1 Q0 clueweb09-en0007-63-02101 1 -3.34724 indri
