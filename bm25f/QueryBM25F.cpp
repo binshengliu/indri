@@ -139,6 +139,13 @@ void QueryBM25F::query(std::string qno, std::string query) {
     stems.push_back(_repo.processTerm(t));
   }
 
+  std::map<std::string, double> termDocCountMap;
+  for (auto t: stems) {
+    double count = _index->documentCount(t);
+    termDocCountMap[t] = count;
+  }
+
+
   std::priority_queue<DocScore, vector<DocScore>, DocScore::greater> queue;
   double threshold = 0;
   DocIterator docIters(_index, _fields, stems);
@@ -161,10 +168,9 @@ void QueryBM25F::query(std::string qno, std::string query) {
         pseudoFreq += _fieldWt[fieldName] * fieldFreq;
 
       }
-      double termDocCount = _index->documentCount(term);
-
       double tf = pseudoFreq / (_k1 + pseudoFreq);
 
+      double termDocCount = termDocCountMap[term];
       double idf = (_totalDocumentCount - termDocCount + 0.5) / (termDocCount + 0.5);
 
       score += tf * idf;
