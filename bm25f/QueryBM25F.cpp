@@ -31,15 +31,15 @@ DocIterator::DocIterator(indri::index::Index *index,
                          const std::vector<std::string> &fields,
                          const std::vector<std::string> &stems):
     _currentIter(NULL),
-    _termItersMap(stems.size(), NULL),
+    _termIters(stems.size(), NULL),
     _fieldIters(fields.size(), NULL) {
   for (size_t termIndex = 0; termIndex < stems.size(); ++termIndex) {
     auto *iter = index->docListIterator(stems[termIndex]);
     if (iter) {
       iter->startIteration();
       if (!iter->finished()) {
-        _termIters.push(iter);
-        _termItersMap[termIndex] = iter;
+        _termItersQueue.push(iter);
+        _termIters[termIndex] = iter;
       }
     }
   }
@@ -56,10 +56,10 @@ DocIterator::DocIterator(indri::index::Index *index,
 }
 
 DocIterator::entry DocIterator::currentEntry() {
-  lemur::api::DOCID_T document = _termIters.top()->currentEntry()->document;
-  DocIterator::entry e(document, _termItersMap.size(), _fieldIters.size());
-  for (size_t termIndex = 0; termIndex < _termItersMap.size(); ++termIndex) {
-    auto iter = _termItersMap[termIndex];
+  lemur::api::DOCID_T document = _termItersQueue.top()->currentEntry()->document;
+  DocIterator::entry e(document, _termIters.size(), _fieldIters.size());
+  for (size_t termIndex = 0; termIndex < _termIters.size(); ++termIndex) {
+    auto iter = _termIters[termIndex];
     if (!iter->finished() && iter->currentEntry()->document == e.document) {
       e.docEntries[termIndex] = iter->currentEntry();
     }
@@ -84,7 +84,7 @@ bool DocIterator::nextEntry() {
 }
 
 void DocIterator::nextFieldEntry() {
-  auto docEntry = _termIters.top()->currentEntry();
+  auto docEntry = _termItersQueue.top()->currentEntry();
 
   for (auto &iter: _fieldIters) {
     iter->nextEntry(docEntry->document);
@@ -94,25 +94,25 @@ void DocIterator::nextFieldEntry() {
 }
 
 bool DocIterator::nextDocEntry() {
-  if (_termIters.empty()) {
+  if (_termItersQueue.empty()) {
     return false;
   }
 
-  indri::index::DocListIterator *iter = _termIters.top();
+  indri::index::DocListIterator *iter = _termItersQueue.top();
   lemur::api::DOCID_T lastId = iter->currentEntry()->document;
-  while (!_termIters.empty() && _termIters.top()->currentEntry()->document <= lastId) {
-    indri::index::DocListIterator *iter = _termIters.top();
-    _termIters.pop();
+  while (!_termItersQueue.empty() && _termItersQueue.top()->currentEntry()->document <= lastId) {
+    indri::index::DocListIterator *iter = _termItersQueue.top();
+    _termItersQueue.pop();
     if (iter->nextEntry(lastId + 1)) {
-      _termIters.push(iter);
+      _termItersQueue.push(iter);
     }
   }
 
-  return !_termIters.empty();
+  return !_termItersQueue.empty();
 }
 
 bool DocIterator::finished() {
-  return _termIters.empty();
+  return _termItersQueue.empty();
 }
 
 QueryBM25F::QueryBM25F(std::string index,

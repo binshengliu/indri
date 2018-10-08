@@ -35,9 +35,9 @@ class DocIterator {
     entry(lemur::api::DOCID_T document, size_t termCount, size_t fieldCount);
   };
  private:
+  std::vector<indri::index::DocListIterator *> _termIters;
   std::vector<indri::index::DocExtentListIterator *> _fieldIters;
-  std::priority_queue<indri::index::DocListIterator *, vector<indri::index::DocListIterator *>, DocIterator::greater> _termIters;
-  std::vector<indri::index::DocListIterator *> _termItersMap;
+  std::priority_queue<indri::index::DocListIterator *, vector<indri::index::DocListIterator *>, DocIterator::greater> _termItersQueue;
   indri::index::DocListIterator *_currentIter;
  public:
   DocIterator(indri::index::Index *index,
