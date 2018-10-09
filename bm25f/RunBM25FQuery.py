@@ -55,7 +55,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    binpath = Path(__file__).with_name('bm25f')
+    binpath = str(Path(__file__).with_name('bm25f'))
     wanted = ['index', 'k1', 'count', 'fieldB', 'fieldWt', 'query', 'stemmer']
     bin_args = [binpath]
     queries = []
