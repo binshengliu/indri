@@ -107,15 +107,11 @@ void DocIterator::nextEntry() {
 }
 
 void DocIterator::resetStats() {
-  for (auto &outer: _termFieldOccur) {
-    for (auto &inner: outer) {
-      inner = 0;
-    }
+  for (auto &field: _termFieldOccur) {
+    std::fill(field.begin(), field.end(), 0);
   }
 
-  for (auto &f: _fieldLength) {
-    f = 0;
-  }
+  std::fill(_fieldLength.begin(), _fieldLength.end(), 0);
 }
 
 void DocIterator::updateStats() {
