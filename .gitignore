@@ -52,3 +52,7 @@ test
 **/.cquery_cached_index
 config.log
 compile_commands.json
+bm25f/bm25f
+bm25f/perf.data
+bm25f/perf.svg
+bm25f/perf.data.old
