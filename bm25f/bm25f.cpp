@@ -84,6 +84,7 @@ int main( int argc, char** argv ) {
     for (size_t fieldIndex = 0; fieldIndex < fields.size(); ++fieldIndex) {
       if (fields[fieldIndex] != fields2[fieldIndex]) {
         std::cerr << "Please specify same fields in \"fieldB\" and \"fieldWt\"" << std::endl;
+        std::cerr << fields[fieldIndex] << " " << fields2[fieldIndex] << std::endl;
         return -1;
       }
     }
