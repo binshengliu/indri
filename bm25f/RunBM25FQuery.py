@@ -38,7 +38,7 @@ def fullpath(p):
 def parse_args():
     parser = argparse.ArgumentParser(description='Run queries distributedly')
 
-    parser.add_argument('--threads', type=int)
+    parser.add_argument('-threads', type=int)
 
     parser.add_argument(
         'param',
@@ -47,7 +47,7 @@ def parse_args():
         help='Param file, none for reading from stdin',
     )
 
-    args, _ = parser.parse_known_args()
+    args = parser.parse_args()
 
     return args
 
