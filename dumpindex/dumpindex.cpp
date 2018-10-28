@@ -306,6 +306,23 @@ void print_term_counts( indri::collection::Repository& r, const std::string& ter
   }
 }
 
+void print_term_document_count( indri::collection::Repository& r, const std::string& termString ) {
+  std::string stem = r.processTerm( termString );
+  indri::server::LocalQueryServer local(r);
+
+  UINT64 totalCount = local.termCount();
+  UINT64 termCount = local.termCount( termString );
+  UINT64 documentCount = local.documentCount(termString);
+  UINT64 totalDocumentCount = local.documentCount();
+
+  std::cout << termString << " "
+            << stem << " "
+            << termCount << " "
+            << totalCount << " "
+            << documentCount << " "
+            << totalDocumentCount << " " << std::endl;
+}
+
 void print_document_name( indri::collection::Repository& r, const char* number ) {
   indri::collection::CompressedCollection* collection = r.collection();
   //  std::string documentName = collection->retrieveMetadatum( atoi( number ), "docid" );
@@ -466,6 +483,7 @@ void usage() {
   std::cout << "    Command              Argument       Description" << std::endl;
   std::cout << "    term (t)             Term text      Print inverted list for a term" << std::endl;
   std::cout << "    termpositions (tp)   Term text      Print inverted list for a term, with positions" << std::endl;
+  std::cout << "    termdoccount (tdc)   Term text      Print number of documents containing a term" << std::endl;
   std::cout << "    fieldpositions (fp)  Field name     Print inverted list for a field, with positions" << std::endl;
   std::cout << "    expressionlist (e)   Expression     Print inverted list for an Indri expression, with positions" << std::endl;
   std::cout << "    xcount (x)           Expression     Print count of occurrences of an Indri expression" << std::endl;
@@ -510,6 +528,10 @@ int main( int argc, char** argv ) {
         REQUIRE_ARGS(4);
         std::string term = argv[3];
         print_term_counts( r, term );
+      } else if ( command == "tdc" || command == "termdocumentcount" ) {
+        REQUIRE_ARGS(4);
+        std::string term = argv[3];
+        print_term_document_count( r, term );
       } else if( command == "tp" || command == "termpositions" ) { 
         REQUIRE_ARGS(4);
         std::string term = argv[3];
