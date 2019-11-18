@@ -25,9 +25,12 @@
 #include "indri/StemmerFactory.hpp"
 #include "indri/NormalizationTransformation.hpp"
 #include "indri/UTF8CaseNormalizationTransformation.hpp"
+#include "../external/argparse/include/argparse.hpp"
 
 int main(int, char **) {
   try {
+    argparse::ArgumentParser program("program name");
+
     cerr << "Built with " << INDRI_DISTRIBUTION << endl;
 
     indri::parse::Tokenizer* tokenizer = 0;
