@@ -4,7 +4,7 @@ SHARED=
 INCPATH=-I../include $(patsubst %, -I../contrib/%/include, $(DEPENDENCIES))
 LIBPATH=-L../obj  $(patsubst %, -L../contrib/%/obj, $(DEPENDENCIES))
 LIBS=-lindri $(patsubst %, -l%, $(DEPENDENCIES))
-APP=tokenize
+APP=IndriCleanText
 SRC = $(notdir $(wildcard *.cpp))
 CXXFLAGS += -O3
 
