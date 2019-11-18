@@ -57,3 +57,4 @@ bm25f/perf.data
 bm25f/perf.svg
 bm25f/perf.data.old
 cleantext/IndriCleanText
+.dir-locals.el
