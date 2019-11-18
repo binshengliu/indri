@@ -26,37 +26,72 @@
 #include "indri/NormalizationTransformation.hpp"
 #include "indri/UTF8CaseNormalizationTransformation.hpp"
 #include "../external/argparse/include/argparse.hpp"
+#include "indri/FileClassEnvironmentFactory.hpp"
 
-int main(int, char **) {
+int main(int argc, char **argv) {
   try {
-    argparse::ArgumentParser program("program name");
+    argparse::ArgumentParser program(argv[0]);
 
-    cerr << "Built with " << INDRI_DISTRIBUTION << endl;
+    program.add_argument("--type")
+        .help("txt (default), html, "
+              "xml.\n\t\tExample: <script>code</"
+              "script><title>00000-NRT-RealEstate's "
+              "Homepage "
+              "Startup</title><body>content</"
+              "body>\n\t\ttxt: script code script title 00000 nrt realestate "
+              "homepage startup title body content body\n\t\thtml: 00000 nrt "
+              "realestate homepage startup content\n\t\txml: code 00000 nrt "
+              "realestate homepage startup content")
+        .default_value(std::string("txt"))
+        .action([](const std::string &value) {
+          static const std::vector<std::string> choices = {"txt", "html", "xml"};
+          if (std::find(choices.begin(), choices.end(), value) !=
+              choices.end()) {
+            return value;
+          }
+          return std::string{"txt"};
+        });
 
-    indri::parse::Tokenizer* tokenizer = 0;
-    indri::parse::Parser* parser = 0;
+    program.add_argument("--stemmer")
+        .help("none, krovetz (default), porter, arabic")
+        .default_value(std::string("krovetz"))
+        .action([](const std::string &value) {
+          static const std::vector<std::string> choices = {"none", "krovetz",
+                                                           "porter", "arabic"};
+          if (std::find(choices.begin(), choices.end(), value) !=
+              choices.end()) {
+            return value;
+          }
+          return std::string{"krovetz"};
+        });
 
-    tokenizer = indri::parse::TokenizerFactory::get("word-nomarkup");
+    try {
+      program.parse_args(argc, argv);
+    } catch (const std::runtime_error &err) {
+      std::cerr << err.what() << std::endl;
+      std::cerr << "Built with " << INDRI_DISTRIBUTION << endl;
+      std::cerr << program;
+      exit(0);
+    }
 
-    std::vector<std::string> includeTags;
-    std::vector<std::string> excludeTags;
-    std::vector<std::string> indexTags;
-    std::vector<std::string> metadataTags;
-    std::map<indri::parse::ConflationPattern *, std::string> conflations;
-    parser = indri::parse::ParserFactory::get(
-        "text", includeTags, excludeTags, indexTags, metadataTags, conflations);
-    indri::api::Parameters empty;
+    std::string type = program.get<std::string>("--type");
+    indri::parse::FileClassEnvironmentFactory fileClassFactory;
+    indri::parse::FileClassEnvironment *fileEnv = fileClassFactory.get(type);
+
     std::vector<indri::parse::Transformation*> transformations;
-
+    indri::api::Parameters empty;
     transformations.push_back( new indri::parse::NormalizationTransformation() );
     transformations.push_back( new indri::parse::UTF8CaseNormalizationTransformation() );
-    transformations.push_back( indri::parse::StemmerFactory::get("krovetz", empty) );
+    std::string stemmer = program.get<std::string>("--stemmer");
+    if (stemmer != "none") {
+      transformations.push_back(indri::parse::StemmerFactory::get(stemmer, empty));
+    }
 
     std::string line;
     while(std::getline(std::cin, line)){
       indri::parse::UnparsedDocument document = {.text = line.c_str(), .textLength = line.length(), .content=line.c_str(), .contentLength = line.length()};
-      indri::parse::TokenizedDocument* tokenized = tokenizer->tokenize(&document);
-      indri::api::ParsedDocument *parsed = parser->parse( tokenized );
+      indri::parse::TokenizedDocument* tokenized = fileEnv->tokenizer->tokenize(&document);
+      indri::api::ParsedDocument *parsed = fileEnv->parser->parse( tokenized );
       for (size_t i = 0; i < transformations.size(); i++) {
         parsed = transformations[i]->transform(parsed);
       }
@@ -75,6 +110,8 @@ int main(int, char **) {
   }
   catch( lemur::api::Exception& e ) {
     LEMUR_ABORT(e);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
   } catch( ... ) {
     std::cout << "Caught unhandled exception" << std::endl;
     return -1;
