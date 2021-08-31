@@ -80,10 +80,11 @@ static void printGrams( const std::string& query, const std::vector<indri::query
 
 static void printQuery(const std::string& query, const std::string &fieldName, int documents,
                         const std::vector<indri::query::RelevanceModel::Gram*>& grams) {
-  std::cout << "#begin number " << query << " documents " << documents << " field "
-            << fieldName << std::endl;
+  // std::cerr << "#begin number " << query << " documents " << documents << " field "
+  //           << fieldName << std::endl;
   for( size_t j=0; j<grams.size(); j++ ) {
-    std::cout << std::setw(15)
+    std::cout << query << " "
+              << std::setw(15)
               << std::setprecision(15)
               << std::fixed
               << grams[j]->weight << " ";
@@ -93,8 +94,8 @@ static void printQuery(const std::string& query, const std::string &fieldName, i
     }
     std::cout << std::endl;
   }
-  std::cout << "#end number " << query << " documents " << documents << " field "
-            << fieldName << std::endl;
+  // std::cout << "#end number " << query << " documents " << documents << " field "
+  //           << fieldName << std::endl;
 }
 
 static void usage(indri::api::Parameters param) {
